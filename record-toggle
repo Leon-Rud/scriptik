@@ -1,0 +1,363 @@
+#!/bin/bash
+# record-toggle: Global recording toggle for interview practice
+# Press once to START recording, press again to STOP → transcribe → clipboard
+# https://github.com/Leon-Rud/record-toggle
+
+set -euo pipefail
+
+# --- Paths ---
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/record-toggle"
+CONFIG_FILE="$CONFIG_DIR/config"
+DATA_DIR="/tmp/record-toggle"
+PID_FILE="$DATA_DIR/recording.pid"
+RECORDING_FILE="$DATA_DIR/recording.wav"
+TRANSCRIPTION_FILE="$DATA_DIR/transcription.txt"
+LOG_FILE="$DATA_DIR/record-toggle.log"
+
+# --- Defaults (overridable via config) ---
+WHISPER_MODEL="small"
+PAUSE_THRESHOLD="1.5"
+INITIAL_PROMPT=""
+WHISPER_VENV="$HOME/.local/share/record-toggle/venv"
+
+# --- Load user config ---
+if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck source=/dev/null
+    source "$CONFIG_FILE"
+fi
+
+WHISPER_PYTHON="$WHISPER_VENV/bin/python3"
+
+mkdir -p "$DATA_DIR"
+
+# --- Helpers ---
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG_FILE"
+}
+
+notify() {
+    local title="$1"
+    local message="$2"
+    local sound="${3:-}"
+    osascript \
+        -e "on run {t, m, s}" \
+        -e "if s is not \"\" then" \
+        -e "  display notification m with title t sound name s" \
+        -e "else" \
+        -e "  display notification m with title t" \
+        -e "end if" \
+        -e "end run" \
+        -- "$title" "$message" "$sound" 2>/dev/null || true
+}
+
+check_dependencies() {
+    if [ ! -f "$WHISPER_PYTHON" ]; then
+        notify "Record Toggle" "Whisper not installed. Run: record-toggle --setup" "Basso"
+        log "ERROR: Whisper python not found at $WHISPER_PYTHON"
+        echo "ERROR: Whisper is not installed."
+        echo "Run: record-toggle --setup"
+        exit 1
+    fi
+}
+
+# --- Recording ---
+
+start_recording() {
+    rm -f "$RECORDING_FILE"
+    log "Starting recording via QuickTime"
+
+    osascript -e '
+        tell application "QuickTime Player"
+            activate
+            set newRec to new audio recording
+            start newRec
+        end tell
+        delay 0.5
+        tell application "System Events"
+            set visible of process "QuickTime Player" to false
+        end tell
+    ' 2>>"$LOG_FILE"
+
+    echo "quicktime" > "$PID_FILE"
+    log "QuickTime recording started"
+    notify "Record Toggle" "Recording started" "Pop"
+}
+
+stop_recording() {
+    rm -f "$PID_FILE"
+    log "Stopping QuickTime recording"
+
+    rm -f "$RECORDING_FILE"
+    osascript -e "
+        tell application \"QuickTime Player\"
+            stop (document 1)
+            set theDoc to document 1
+            export theDoc in POSIX file \"$RECORDING_FILE\" using settings preset \"Audio Only\"
+            close theDoc without saving
+            quit
+        end tell
+    " 2>>"$LOG_FILE"
+
+    # Wait for export
+    for i in $(seq 1 5); do
+        [ -f "$RECORDING_FILE" ] && break
+        sleep 1
+    done
+
+    if [ ! -f "$RECORDING_FILE" ]; then
+        log "ERROR: No recording file after QuickTime export"
+        notify "Record Toggle" "Recording failed - no file exported" "Basso"
+        exit 1
+    fi
+
+    local size
+    size=$(stat -f%z "$RECORDING_FILE" 2>/dev/null || echo 0)
+    log "Recording size: $size bytes"
+
+    if [ "$size" -lt 1024 ]; then
+        log "ERROR: Recording too short ($size bytes)"
+        notify "Record Toggle" "Recording too short" "Basso"
+        rm -f "$RECORDING_FILE"
+        exit 1
+    fi
+
+    notify "Record Toggle" "Transcribing..." "Tink"
+    log "Starting transcription (model=$WHISPER_MODEL)"
+
+    "$WHISPER_PYTHON" - "$RECORDING_FILE" "$TRANSCRIPTION_FILE" "$PAUSE_THRESHOLD" "$WHISPER_MODEL" "$INITIAL_PROMPT" <<'PYTHON_SCRIPT'
+import sys
+import whisper
+import warnings
+warnings.filterwarnings("ignore")
+
+recording_file = sys.argv[1]
+transcription_file = sys.argv[2]
+pause_threshold = float(sys.argv[3])
+model_name = sys.argv[4]
+initial_prompt = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else None
+
+model = whisper.load_model(model_name)
+
+transcribe_opts = dict(
+    word_timestamps=True,
+    condition_on_previous_text=False,
+    no_speech_threshold=0.05,
+    logprob_threshold=-2.0,
+    compression_ratio_threshold=2.8,
+)
+if initial_prompt:
+    transcribe_opts["initial_prompt"] = initial_prompt
+
+result = model.transcribe(recording_file, **transcribe_opts)
+
+output_lines = []
+prev_end = 0.0
+
+for segment in result["segments"]:
+    words = segment.get("words", [])
+    if not words:
+        gap = segment["start"] - prev_end
+        if gap >= pause_threshold and prev_end > 0:
+            output_lines.append(
+                f'  [{prev_end:.1f}s --> {segment["start"]:.1f}s] [pause {gap:.1f}s]'
+            )
+        output_lines.append(
+            f'  [{segment["start"]:.1f}s --> {segment["end"]:.1f}s] {segment["text"].strip()}'
+        )
+        prev_end = segment["end"]
+        continue
+
+    for word_info in words:
+        gap = word_info["start"] - prev_end
+        if gap >= pause_threshold and prev_end > 0:
+            output_lines.append(
+                f'  [{prev_end:.1f}s --> {word_info["start"]:.1f}s] [pause {gap:.1f}s]'
+            )
+        prev_end = word_info["end"]
+
+    text = segment["text"].strip()
+    output_lines.append(
+        f'  [{segment["start"]:.1f}s --> {segment["end"]:.1f}s] {text}'
+    )
+    prev_end = segment["end"]
+
+# Filter repeated hallucinated segments
+filtered = []
+prev_text = ""
+for line in output_lines:
+    parts = line.rsplit("] ", 1)
+    text = parts[-1].strip() if len(parts) > 1 else line.strip()
+    if text.startswith("[pause"):
+        filtered.append(line)
+    elif text != prev_text:
+        filtered.append(line)
+        prev_text = text
+
+output = "\n".join(filtered)
+with open(transcription_file, "w") as f:
+    f.write(output)
+PYTHON_SCRIPT
+
+    if [ $? -ne 0 ] || [ ! -f "$TRANSCRIPTION_FILE" ]; then
+        log "ERROR: Transcription failed"
+        notify "Record Toggle" "Transcription failed" "Basso"
+        exit 1
+    fi
+
+    local output
+    output=$(cat "$TRANSCRIPTION_FILE")
+    log "Transcription done ($(echo "$output" | wc -l | tr -d ' ') lines)"
+
+    if [ -z "$output" ]; then
+        log "ERROR: Empty transcription"
+        notify "Record Toggle" "No speech detected" "Basso"
+        exit 1
+    fi
+
+    pbcopy < "$TRANSCRIPTION_FILE"
+    notify "Record Toggle" "Copied to clipboard" "Pop"
+    log "Copied to clipboard"
+    echo "$output"
+}
+
+# --- Setup ---
+
+do_setup() {
+    echo "=== Record Toggle Setup ==="
+    echo ""
+
+    # Check Python 3
+    if ! command -v python3 &>/dev/null; then
+        echo "ERROR: Python 3 is required. Install it with: brew install python3"
+        exit 1
+    fi
+    echo "[ok] Python 3 found: $(python3 --version)"
+
+    # Create venv and install whisper
+    if [ ! -f "$WHISPER_PYTHON" ]; then
+        echo "[..] Creating Python virtual environment..."
+        mkdir -p "$(dirname "$WHISPER_VENV")"
+        python3 -m venv "$WHISPER_VENV"
+        echo "[..] Installing OpenAI Whisper (this may take a few minutes)..."
+        "$WHISPER_VENV/bin/pip" install --quiet --upgrade pip
+        "$WHISPER_VENV/bin/pip" install --quiet openai-whisper
+        echo "[ok] Whisper installed"
+    else
+        echo "[ok] Whisper already installed"
+    fi
+
+    # Create default config
+    mkdir -p "$CONFIG_DIR"
+    if [ ! -f "$CONFIG_FILE" ]; then
+        cat > "$CONFIG_FILE" <<'EOF'
+# Record Toggle Configuration
+# Edit these values to customize behavior
+
+# Whisper model: tiny, base, small, medium, large
+# Smaller = faster, larger = more accurate
+WHISPER_MODEL="small"
+
+# Seconds of silence before marking a [pause]
+PAUSE_THRESHOLD="1.5"
+
+# Hint words to improve transcription accuracy (comma-separated)
+# Add domain-specific terms, names, or filler words in your language
+INITIAL_PROMPT=""
+
+# Python venv path (usually no need to change)
+# WHISPER_VENV="$HOME/.local/share/record-toggle/venv"
+EOF
+        echo "[ok] Config created at $CONFIG_FILE"
+    else
+        echo "[ok] Config already exists at $CONFIG_FILE"
+    fi
+
+    # Pre-download model
+    echo "[..] Pre-downloading Whisper '$WHISPER_MODEL' model..."
+    "$WHISPER_PYTHON" -c "
+import whisper, warnings
+warnings.filterwarnings('ignore')
+whisper.load_model('$WHISPER_MODEL')
+print('Model ready')
+" 2>/dev/null
+    echo "[ok] Whisper model '$WHISPER_MODEL' ready"
+
+    echo ""
+    echo "=== Setup complete ==="
+    echo ""
+    echo "Next steps:"
+    echo "  1. Open: System Settings > Keyboard > Keyboard Shortcuts > Services"
+    echo "  2. Find 'Record Toggle' under General"
+    echo "  3. Assign your preferred keyboard shortcut"
+    echo ""
+    echo "Or use macOS Shortcuts app:"
+    echo "  1. Open Shortcuts.app"
+    echo "  2. Create new shortcut with 'Run Shell Script' action"
+    echo "  3. Set the script to: record-toggle"
+    echo "  4. Assign a keyboard shortcut to it"
+    echo ""
+}
+
+# --- Status ---
+
+do_status() {
+    if [ -f "$PID_FILE" ]; then
+        echo "Status: RECORDING"
+        echo "Started: $(stat -f '%Sm' "$PID_FILE" 2>/dev/null || echo 'unknown')"
+    else
+        echo "Status: IDLE"
+    fi
+
+    if [ -f "$WHISPER_PYTHON" ]; then
+        echo "Whisper: installed"
+    else
+        echo "Whisper: NOT installed (run: record-toggle --setup)"
+    fi
+
+    echo "Config: $CONFIG_FILE"
+    echo "Logs: $LOG_FILE"
+}
+
+# --- CLI ---
+
+case "${1:-}" in
+    --setup)
+        do_setup
+        ;;
+    --status)
+        do_status
+        ;;
+    --log)
+        if [ -f "$LOG_FILE" ]; then
+            tail -20 "$LOG_FILE"
+        else
+            echo "No log file yet"
+        fi
+        ;;
+    --help|-h)
+        echo "Usage: record-toggle [OPTION]"
+        echo ""
+        echo "Global audio recording toggle with Whisper transcription."
+        echo "Run without arguments to toggle recording on/off."
+        echo ""
+        echo "Options:"
+        echo "  --setup    Install Whisper and create config"
+        echo "  --status   Show current recording status"
+        echo "  --log      Show recent log entries"
+        echo "  --help     Show this help message"
+        echo ""
+        echo "Config: $CONFIG_FILE"
+        ;;
+    *)
+        log "=== record-toggle invoked ==="
+        check_dependencies
+        if [ -f "$PID_FILE" ]; then
+            log "PID file exists → stopping recording"
+            stop_recording
+        else
+            log "No PID file → starting recording"
+            start_recording
+        fi
+        ;;
+esac
