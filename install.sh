@@ -40,6 +40,12 @@ else
 fi
 echo "[ok] Installed record-toggle to $INSTALL_DIR"
 
+# --- Install dashboard ---
+DASHBOARD_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/record-toggle"
+mkdir -p "$DASHBOARD_DIR"
+cp "$SCRIPT_DIR/dashboard.py" "$DASHBOARD_DIR/dashboard.py"
+echo "[ok] Installed dashboard to $DASHBOARD_DIR"
+
 # --- Create Automator Quick Action ---
 WORKFLOW_DIR="$SERVICES_DIR/$WORKFLOW_NAME.workflow/Contents"
 mkdir -p "$WORKFLOW_DIR"

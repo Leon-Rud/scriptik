@@ -5,6 +5,11 @@
 
 set -euo pipefail
 
+# --- Ensure UTF-8 locale (Shortcuts.app may not set this) ---
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+export PYTHONIOENCODING="utf-8"
+
 # --- Paths ---
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/record-toggle"
 CONFIG_FILE="$CONFIG_DIR/config"
@@ -15,9 +20,11 @@ TRANSCRIPTION_FILE="$DATA_DIR/transcription.txt"
 LOG_FILE="$DATA_DIR/record-toggle.log"
 
 # --- Defaults (overridable via config) ---
-WHISPER_MODEL="small"
+WHISPER_MODEL="medium"
 PAUSE_THRESHOLD="1.5"
 INITIAL_PROMPT=""
+AUTO_PASTE="true"
+LANGUAGE="auto"
 WHISPER_VENV="$HOME/.local/share/record-toggle/venv"
 
 # --- Load user config ---
@@ -26,7 +33,15 @@ if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 fi
 
-WHISPER_PYTHON="$WHISPER_VENV/bin/python3"
+# --- Auto-detect Whisper venv ---
+# Check configured path first, then common locations
+if [ -f "$WHISPER_VENV/bin/python3" ]; then
+    WHISPER_PYTHON="$WHISPER_VENV/bin/python3"
+elif [ -f "$HOME/whisper-env/bin/python3" ]; then
+    WHISPER_PYTHON="$HOME/whisper-env/bin/python3"
+else
+    WHISPER_PYTHON="$WHISPER_VENV/bin/python3"
+fi
 
 mkdir -p "$DATA_DIR"
 
@@ -89,21 +104,42 @@ stop_recording() {
     log "Stopping QuickTime recording"
 
     rm -f "$RECORDING_FILE"
+
+    # Phase 1: Stop recording and start export
     osascript -e "
         tell application \"QuickTime Player\"
             stop (document 1)
             set theDoc to document 1
             export theDoc in POSIX file \"$RECORDING_FILE\" using settings preset \"Audio Only\"
-            close theDoc without saving
-            quit
         end tell
     " 2>>"$LOG_FILE"
 
-    # Wait for export
-    for i in $(seq 1 5); do
-        [ -f "$RECORDING_FILE" ] && break
-        sleep 1
+    # Phase 2: Wait for the export file to appear and stabilize
+    log "Waiting for export to complete..."
+    local prev_size=0
+    for i in $(seq 1 15); do
+        if [ -f "$RECORDING_FILE" ]; then
+            local cur_size
+            cur_size=$(stat -f%z "$RECORDING_FILE" 2>/dev/null || echo 0)
+            # File exists and size stopped changing = export done
+            if [ "$cur_size" -gt 0 ] && [ "$cur_size" -eq "$prev_size" ]; then
+                log "Export complete ($cur_size bytes)"
+                break
+            fi
+            prev_size=$cur_size
+        fi
+        sleep 0.5
     done
+
+    # Phase 3: Close document and quit QuickTime (cleans up all UI)
+    osascript -e '
+        tell application "QuickTime Player"
+            try
+                close every document without saving
+            end try
+            quit
+        end tell
+    ' 2>>"$LOG_FILE"
 
     if [ ! -f "$RECORDING_FILE" ]; then
         log "ERROR: No recording file after QuickTime export"
@@ -125,7 +161,7 @@ stop_recording() {
     notify "Record Toggle" "Transcribing..." "Tink"
     log "Starting transcription (model=$WHISPER_MODEL)"
 
-    "$WHISPER_PYTHON" - "$RECORDING_FILE" "$TRANSCRIPTION_FILE" "$PAUSE_THRESHOLD" "$WHISPER_MODEL" "$INITIAL_PROMPT" <<'PYTHON_SCRIPT'
+    "$WHISPER_PYTHON" - "$RECORDING_FILE" "$TRANSCRIPTION_FILE" "$PAUSE_THRESHOLD" "$WHISPER_MODEL" "$INITIAL_PROMPT" "${LANGUAGE:-auto}" <<'PYTHON_SCRIPT'
 import sys
 import whisper
 import warnings
@@ -136,10 +172,22 @@ transcription_file = sys.argv[2]
 pause_threshold = float(sys.argv[3])
 model_name = sys.argv[4]
 initial_prompt = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else None
+language = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] != "auto" else None
 
 model = whisper.load_model(model_name)
 
+# When auto-detecting, restrict to Hebrew and English only
+if language is None:
+    import numpy as np
+    audio = whisper.load_audio(recording_file)
+    audio_padded = whisper.pad_or_trim(audio)
+    mel = whisper.log_mel_spectrogram(audio_padded).to(model.device)
+    _, probs = model.detect_language(mel)
+    allowed = {"he": probs.get("he", 0), "en": probs.get("en", 0)}
+    language = max(allowed, key=allowed.get)
+
 transcribe_opts = dict(
+    language=language,
     word_timestamps=True,
     condition_on_previous_text=False,
     no_speech_threshold=0.05,
@@ -195,7 +243,7 @@ for line in output_lines:
         prev_text = text
 
 output = "\n".join(filtered)
-with open(transcription_file, "w") as f:
+with open(transcription_file, "w", encoding="utf-8") as f:
     f.write(output)
 PYTHON_SCRIPT
 
@@ -215,9 +263,29 @@ PYTHON_SCRIPT
         exit 1
     fi
 
+    # Save to history
+    local history_dir="$CONFIG_DIR/history"
+    mkdir -p "$history_dir"
+    cp "$TRANSCRIPTION_FILE" "$history_dir/$(date '+%Y%m%d_%H%M%S').txt"
+    log "Saved to history"
+
     pbcopy < "$TRANSCRIPTION_FILE"
-    notify "Record Toggle" "Copied to clipboard" "Pop"
     log "Copied to clipboard"
+
+    # Auto-paste into the active app (like SuperWhisper)
+    if [ "${AUTO_PASTE:-true}" = "true" ]; then
+        sleep 0.3
+        osascript -e '
+            tell application "System Events"
+                keystroke "v" using command down
+            end tell
+        ' 2>>"$LOG_FILE"
+        notify "Record Toggle" "Pasted" "Pop"
+        log "Auto-pasted into active app"
+    else
+        notify "Record Toggle" "Copied to clipboard" "Pop"
+    fi
+
     echo "$output"
 }
 
@@ -256,7 +324,7 @@ do_setup() {
 
 # Whisper model: tiny, base, small, medium, large
 # Smaller = faster, larger = more accurate
-WHISPER_MODEL="small"
+WHISPER_MODEL="medium"
 
 # Seconds of silence before marking a [pause]
 PAUSE_THRESHOLD="1.5"
@@ -335,6 +403,19 @@ case "${1:-}" in
             echo "No log file yet"
         fi
         ;;
+    --dashboard)
+        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+        DASHBOARD="$SCRIPT_DIR/dashboard.py"
+        # Also check installed location
+        if [ ! -f "$DASHBOARD" ]; then
+            DASHBOARD="${XDG_DATA_HOME:-$HOME/.local/share}/record-toggle/dashboard.py"
+        fi
+        if [ ! -f "$DASHBOARD" ]; then
+            echo "ERROR: dashboard.py not found. Re-run install.sh"
+            exit 1
+        fi
+        python3 "$DASHBOARD"
+        ;;
     --help|-h)
         echo "Usage: record-toggle [OPTION]"
         echo ""
@@ -342,10 +423,11 @@ case "${1:-}" in
         echo "Run without arguments to toggle recording on/off."
         echo ""
         echo "Options:"
-        echo "  --setup    Install Whisper and create config"
-        echo "  --status   Show current recording status"
-        echo "  --log      Show recent log entries"
-        echo "  --help     Show this help message"
+        echo "  --setup      Install Whisper and create config"
+        echo "  --dashboard  Open the web dashboard"
+        echo "  --status     Show current recording status"
+        echo "  --log        Show recent log entries"
+        echo "  --help       Show this help message"
         echo ""
         echo "Config: $CONFIG_FILE"
         ;;

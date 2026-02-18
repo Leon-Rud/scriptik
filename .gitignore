@@ -3,3 +3,8 @@
 *.log
 *.pid
 .DS_Store
+__pycache__/
+*.pyc
+.cache/
+RecordToggle/.build/
+RecordToggle/build/

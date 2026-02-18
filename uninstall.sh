@@ -42,7 +42,14 @@ fi
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/record-toggle"
 if [ -d "$CONFIG_DIR" ]; then
     rm -rf "$CONFIG_DIR"
-    echo "[ok] Removed config at $CONFIG_DIR"
+    echo "[ok] Removed config and history at $CONFIG_DIR"
+fi
+
+# Remove dashboard
+DASHBOARD_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/record-toggle"
+if [ -d "$DASHBOARD_DIR" ]; then
+    rm -rf "$DASHBOARD_DIR"
+    echo "[ok] Removed dashboard at $DASHBOARD_DIR"
 fi
 
 # Remove venv
