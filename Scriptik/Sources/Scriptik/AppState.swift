@@ -50,7 +50,7 @@ final class AppState {
             statusText = "Recording..."
             showFloatingIndicator()
         } catch {
-            NSLog("RecordToggle: startRecording error: \(error)")
+            NSLog("Scriptik: startRecording error: \(error)")
             statusText = "Mic error: \(error.localizedDescription)"
         }
     }
@@ -95,7 +95,7 @@ final class AppState {
                     statusText = "Ready"
                 }
             } catch {
-                NSLog("RecordToggle: transcription error: \(error)")
+                NSLog("Scriptik: transcription error: \(error)")
                 statusText = "Error: \(error.localizedDescription)"
             }
         }
@@ -130,20 +130,20 @@ final class AppState {
 
     private func simulatePaste() {
         guard AXIsProcessTrusted() else {
-            NSLog("RecordToggle: paste skipped — Accessibility not granted")
+            NSLog("Scriptik: paste skipped — Accessibility not granted")
             return
         }
         let src = CGEventSource(stateID: .hidSystemState)
         guard let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: false) else {
-            NSLog("RecordToggle: failed to create CGEvent")
+            NSLog("Scriptik: failed to create CGEvent")
             return
         }
         keyDown.flags = .maskCommand
         keyUp.flags = .maskCommand
         keyDown.post(tap: .cghidEventTap)
         keyUp.post(tap: .cghidEventTap)
-        NSLog("RecordToggle: paste simulated via CGEvent")
+        NSLog("Scriptik: paste simulated via CGEvent")
     }
 
     /// Last result formatted according to user's timestamp preference

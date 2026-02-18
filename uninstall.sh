@@ -1,13 +1,13 @@
 #!/bin/bash
-# Record Toggle uninstaller
+# Scriptik uninstaller
 set -euo pipefail
 
 echo ""
-echo "  Record Toggle Uninstaller"
+echo "  Scriptik Uninstaller"
 echo "  ========================="
 echo ""
 
-read -p "This will remove Record Toggle. Continue? [y/N] " -n 1 -r
+read -p "This will remove Scriptik. Continue? [y/N] " -n 1 -r
 echo ""
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Cancelled."
@@ -15,17 +15,17 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 # Remove installed script
-if [ -f "/usr/local/bin/record-toggle" ]; then
+if [ -f "/usr/local/bin/scriptik-cli" ]; then
     if [ -w "/usr/local/bin" ]; then
-        rm -f "/usr/local/bin/record-toggle"
+        rm -f "/usr/local/bin/scriptik-cli"
     else
-        sudo rm -f "/usr/local/bin/record-toggle"
+        sudo rm -f "/usr/local/bin/scriptik-cli"
     fi
-    echo "[ok] Removed /usr/local/bin/record-toggle"
+    echo "[ok] Removed /usr/local/bin/scriptik-cli"
 fi
 
 # Remove Automator workflow
-WORKFLOW="$HOME/Library/Services/Record Toggle.workflow"
+WORKFLOW="$HOME/Library/Services/Scriptik.workflow"
 if [ -d "$WORKFLOW" ]; then
     rm -rf "$WORKFLOW"
     echo "[ok] Removed Quick Action workflow"
@@ -39,29 +39,29 @@ if [ -d "$OLD_WORKFLOW" ]; then
 fi
 
 # Remove config
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/record-toggle"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/scriptik"
 if [ -d "$CONFIG_DIR" ]; then
     rm -rf "$CONFIG_DIR"
     echo "[ok] Removed config and history at $CONFIG_DIR"
 fi
 
 # Remove dashboard
-DASHBOARD_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/record-toggle"
+DASHBOARD_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/scriptik"
 if [ -d "$DASHBOARD_DIR" ]; then
     rm -rf "$DASHBOARD_DIR"
     echo "[ok] Removed dashboard at $DASHBOARD_DIR"
 fi
 
 # Remove venv
-VENV_DIR="$HOME/.local/share/record-toggle"
+VENV_DIR="$HOME/.local/share/scriptik"
 if [ -d "$VENV_DIR" ]; then
     rm -rf "$VENV_DIR"
     echo "[ok] Removed Whisper venv at $VENV_DIR"
 fi
 
 # Remove temp files
-if [ -d "/tmp/record-toggle" ]; then
-    rm -rf "/tmp/record-toggle"
+if [ -d "/tmp/scriptik" ]; then
+    rm -rf "/tmp/scriptik"
     echo "[ok] Removed temp files"
 fi
 

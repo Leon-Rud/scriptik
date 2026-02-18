@@ -1,13 +1,13 @@
 #!/bin/bash
-# Build Record Toggle.app from SPM executable
+# Build Scriptik.app from SPM executable
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_DIR/build"
-APP_NAME="Record Toggle"
+APP_NAME="Scriptik"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
-BINARY_NAME="RecordToggle"
+BINARY_NAME="Scriptik"
 
 echo "Building $APP_NAME..."
 
@@ -49,7 +49,7 @@ if [ -d "$RESOURCE_BUNDLE" ]; then
 fi
 
 # Generate app icon if not yet built
-ICON_FILE="$PROJECT_DIR/Sources/RecordToggle/Resources/AppIcon.icns"
+ICON_FILE="$PROJECT_DIR/Sources/Scriptik/Resources/AppIcon.icns"
 if [ ! -f "$ICON_FILE" ]; then
     echo "Generating app icon..."
     "$SWIFT" -Xfrontend -disable-implicit-string-processing-module-import "$SCRIPT_DIR/generate-icon.swift"
@@ -59,15 +59,15 @@ if [ -f "$ICON_FILE" ]; then
 fi
 
 # Copy Info.plist to bundle root
-cp "$PROJECT_DIR/Sources/RecordToggle/Resources/Info.plist" "$STAGE_BUNDLE/Contents/"
+cp "$PROJECT_DIR/Sources/Scriptik/Resources/Info.plist" "$STAGE_BUNDLE/Contents/"
 
 # Strip ALL extended attributes (prevents "resource fork" codesign error)
 xattr -cr "$STAGE_BUNDLE" 2>/dev/null || true
 find "$STAGE_BUNDLE" -exec xattr -c {} \; 2>/dev/null || true
 
 # Codesign with stable identity (preserves Accessibility permission across rebuilds)
-# Falls back to ad-hoc if "RecordToggle Dev" identity not found
-SIGN_IDENTITY="RecordToggle Dev"
+# Falls back to ad-hoc if "Scriptik Dev" identity not found
+SIGN_IDENTITY="Scriptik Dev"
 if ! security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY"; then
     SIGN_IDENTITY="-"
 fi

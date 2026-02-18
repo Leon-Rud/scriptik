@@ -1,20 +1,20 @@
 #!/bin/bash
-# Record Toggle installer for macOS
+# Scriptik installer for macOS
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_DIR="/usr/local/bin"
 SERVICES_DIR="$HOME/Library/Services"
-WORKFLOW_NAME="Record Toggle"
+WORKFLOW_NAME="Scriptik"
 
 echo ""
-echo "  Record Toggle Installer"
+echo "  Scriptik Installer"
 echo "  ========================"
 echo ""
 
 # --- Check macOS ---
 if [[ "$(uname)" != "Darwin" ]]; then
-    echo "ERROR: Record Toggle only works on macOS."
+    echo "ERROR: Scriptik only works on macOS."
     exit 1
 fi
 echo "[ok] macOS detected"
@@ -31,17 +31,17 @@ echo "[ok] Python 3 found ($(python3 --version 2>&1 | awk '{print $2}'))"
 # --- Install script ---
 echo ""
 if [ -w "$INSTALL_DIR" ]; then
-    cp "$SCRIPT_DIR/record-toggle" "$INSTALL_DIR/record-toggle"
-    chmod +x "$INSTALL_DIR/record-toggle"
+    cp "$SCRIPT_DIR/scriptik-cli" "$INSTALL_DIR/scriptik-cli"
+    chmod +x "$INSTALL_DIR/scriptik-cli"
 else
     echo "Installing to $INSTALL_DIR requires admin privileges."
-    sudo cp "$SCRIPT_DIR/record-toggle" "$INSTALL_DIR/record-toggle"
-    sudo chmod +x "$INSTALL_DIR/record-toggle"
+    sudo cp "$SCRIPT_DIR/scriptik-cli" "$INSTALL_DIR/scriptik-cli"
+    sudo chmod +x "$INSTALL_DIR/scriptik-cli"
 fi
-echo "[ok] Installed record-toggle to $INSTALL_DIR"
+echo "[ok] Installed scriptik-cli to $INSTALL_DIR"
 
 # --- Install dashboard ---
-DASHBOARD_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/record-toggle"
+DASHBOARD_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/scriptik"
 mkdir -p "$DASHBOARD_DIR"
 cp "$SCRIPT_DIR/dashboard.py" "$DASHBOARD_DIR/dashboard.py"
 echo "[ok] Installed dashboard to $DASHBOARD_DIR"
@@ -61,7 +61,7 @@ cat > "$WORKFLOW_DIR/Info.plist" <<'PLIST'
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Record Toggle</string>
+				<string>Scriptik</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>runWorkflowAsService</string>
@@ -133,7 +133,7 @@ cat > "$WORKFLOW_DIR/document.wflow" <<'WFLOW'
 				<key>ActionParameters</key>
 				<dict>
 					<key>COMMAND_STRING</key>
-					<string>/usr/local/bin/record-toggle</string>
+					<string>/usr/local/bin/scriptik-cli</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
 					<key>inputMethod</key>
@@ -208,7 +208,7 @@ echo "[ok] Created Quick Action workflow"
 
 # --- Run setup (install Whisper, create config, download model) ---
 echo ""
-"$INSTALL_DIR/record-toggle" --setup
+"$INSTALL_DIR/scriptik-cli" --setup
 
 # --- Keyboard shortcut instructions ---
 echo ""
@@ -217,13 +217,13 @@ echo "  --------------------------"
 echo ""
 echo "  Option A: System Settings (recommended)"
 echo "    1. Open System Settings > Keyboard > Keyboard Shortcuts > Services"
-echo "    2. Find 'Record Toggle' under General"
+echo "    2. Find 'Scriptik' under General"
 echo "    3. Click 'none' and press your shortcut (e.g. Ctrl+Shift+R)"
 echo ""
 echo "  Option B: Shortcuts app"
 echo "    1. Open Shortcuts.app > New Shortcut"
 echo "    2. Add 'Run Shell Script' action"
-echo "    3. Type: record-toggle"
+echo "    3. Type: scriptik-cli"
 echo "    4. Right-click shortcut > Add Keyboard Shortcut"
 echo ""
 

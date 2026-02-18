@@ -6,5 +6,5 @@
 __pycache__/
 *.pyc
 .cache/
-RecordToggle/.build/
-RecordToggle/build/
+Scriptik/.build/
+Scriptik/build/

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record Toggle Dashboard — local web UI for configuration and history."""
+"""Scriptik Dashboard — local web UI for configuration and history."""
 
 import http.server
 import json
@@ -11,10 +11,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 PORT = 19876
-CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "record-toggle"
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "scriptik"
 CONFIG_FILE = CONFIG_DIR / "config"
-DATA_DIR = Path("/tmp/record-toggle")
-LOG_FILE = DATA_DIR / "record-toggle.log"
+DATA_DIR = Path("/tmp/scriptik")
+LOG_FILE = DATA_DIR / "scriptik.log"
 HISTORY_DIR = CONFIG_DIR / "history"
 
 
@@ -38,7 +38,7 @@ def read_config():
 def write_config(data):
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     lines = [
-        "# Record Toggle Configuration",
+        "# Scriptik Configuration",
         "",
         f'WHISPER_MODEL="{data.get("WHISPER_MODEL", "medium")}"',
         f'PAUSE_THRESHOLD="{data.get("PAUSE_THRESHOLD", "1.5")}"',
@@ -98,7 +98,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Record Toggle</title>
+<title>Scriptik</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -430,7 +430,7 @@ textarea.vocab:focus{border-color:var(--accent)}
   <nav class="side">
     <div class="side-brand">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
-      Record Toggle
+      Scriptik
     </div>
     <div class="nav on" data-p="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
@@ -484,7 +484,7 @@ textarea.vocab:focus{border-color:var(--accent)}
       </div>
       <div class="card" onclick="navigate('vocab')" style="cursor:pointer">
         <div class="card-title">Add vocabulary</div>
-        <div class="card-desc">Teach Record Toggle custom words, names, and technical terms.</div>
+        <div class="card-desc">Teach Scriptik custom words, names, and technical terms.</div>
       </div>
     </div>
 
@@ -817,7 +817,7 @@ def main():
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("127.0.0.1", PORT), DashboardHandler) as httpd:
         url = f"http://127.0.0.1:{PORT}"
-        print(f"Record Toggle Dashboard running at {url}")
+        print(f"Scriptik Dashboard running at {url}")
         webbrowser.open(url)
         try:
             httpd.serve_forever()

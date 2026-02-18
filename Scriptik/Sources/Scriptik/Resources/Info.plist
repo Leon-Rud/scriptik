@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>RecordToggle</string>
+    <string>Scriptik</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleName</key>
-    <string>Record Toggle</string>
+    <string>Scriptik</string>
     <key>CFBundleIdentifier</key>
-    <string>com.leon-rud.record-toggle</string>
+    <string>com.leon-rud.scriptik</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>
@@ -17,6 +17,6 @@
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Record Toggle needs microphone access to record audio for transcription.</string>
+    <string>Scriptik needs microphone access to record audio for transcription.</string>
 </dict>
 </plist>

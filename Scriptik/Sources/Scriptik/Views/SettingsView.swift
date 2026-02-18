@@ -144,7 +144,7 @@ private struct AboutTab: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.blue)
 
-            Text("Record Toggle")
+            Text("Scriptik")
                 .font(.title2)
                 .fontWeight(.semibold)
 
@@ -156,7 +156,7 @@ private struct AboutTab: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Link("GitHub", destination: URL(string: "https://github.com/Leon-Rud/record-toggle")!)
+            Link("GitHub", destination: URL(string: "https://github.com/Leon-Rud/scriptik")!)
                 .font(.caption)
         }
         .padding()

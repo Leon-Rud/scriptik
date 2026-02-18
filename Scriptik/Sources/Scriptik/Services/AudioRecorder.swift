@@ -19,7 +19,7 @@ final class AudioRecorder {
         let fm = FileManager.default
         let dataDir = ConfigManager.dataDir.path
 
-        // Create /tmp/record-toggle/ if needed
+        // Create /tmp/scriptik/ if needed
         if !fm.fileExists(atPath: dataDir) {
             try fm.createDirectory(atPath: dataDir, withIntermediateDirectories: true)
         }

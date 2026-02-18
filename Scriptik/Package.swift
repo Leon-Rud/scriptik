@@ -3,17 +3,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "RecordToggle",
+    name: "Scriptik",
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", exact: "1.10.0"),
     ],
     targets: [
         .executableTarget(
-            name: "RecordToggle",
+            name: "Scriptik",
             dependencies: ["KeyboardShortcuts"],
-            path: "Sources/RecordToggle",
-            exclude: ["Resources/Info.plist"],
+            path: "Sources/Scriptik",
+            exclude: ["Resources/Info.plist", "Resources/AppIcon.icns", "Resources/__pycache__"],
             resources: [
                 .copy("Resources/transcribe.py"),
             ]

@@ -3,12 +3,12 @@ import SwiftUI
 import KeyboardShortcuts
 
 @main
-struct RecordToggleApp {
+struct ScriptikApp {
     static func main() {
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)  // Show in dock
 
-        ProcessInfo.processInfo.disableAutomaticTermination("Record Toggle")
+        ProcessInfo.processInfo.disableAutomaticTermination("Scriptik")
 
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        mainWindow.title = "Record Toggle"
+        mainWindow.title = "Scriptik"
         mainWindow.titlebarAppearsTransparent = true
         mainWindow.isMovableByWindowBackground = true
         mainWindow.contentViewController = NSHostingController(rootView: contentView)

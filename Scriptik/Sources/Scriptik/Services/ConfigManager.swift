@@ -17,10 +17,10 @@ final class ConfigManager {
     // MARK: - Path constants
 
     static let configDir = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".config/record-toggle")
+        .appendingPathComponent(".config/scriptik")
     static let configFile = configDir.appendingPathComponent("config")
     static let historyDir = configDir.appendingPathComponent("history")
-    static let dataDir = URL(fileURLWithPath: "/tmp/record-toggle")
+    static let dataDir = URL(fileURLWithPath: "/tmp/scriptik")
     static let pidFile = dataDir.appendingPathComponent("recording.pid")
     static let recordingFile = dataDir.appendingPathComponent("recording.wav")
     static let transcriptionFile = dataDir.appendingPathComponent("transcription.txt")
@@ -34,7 +34,7 @@ final class ConfigManager {
 
     init() {
         whisperVenv = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".local/share/record-toggle/venv").path
+            .appendingPathComponent(".local/share/scriptik/venv").path
         load()
     }
 
@@ -96,7 +96,7 @@ final class ConfigManager {
         }
 
         var lines: [String] = []
-        lines.append("# Record Toggle configuration")
+        lines.append("# Scriptik configuration")
         lines.append("# This file is auto-generated. Manual edits are preserved.")
         lines.append("")
         lines.append("WHISPER_MODEL=\"\(whisperModel)\"")

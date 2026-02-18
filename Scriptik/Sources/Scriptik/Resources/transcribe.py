@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Whisper transcription script for Record Toggle.
+"""Whisper transcription script for Scriptik.
 
 Usage:
     python3 transcribe.py <recording.wav> <output.txt> <pause_threshold> <model> [initial_prompt] [language]

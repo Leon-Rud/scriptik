@@ -143,7 +143,7 @@ final class Transcriber {
 
         // 2. Check nested bundle (SPM resource bundle inside app)
         let nestedPath = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Resources/RecordToggle_RecordToggle.bundle/transcribe.py")
+            .appendingPathComponent("Contents/Resources/Scriptik_Scriptik.bundle/transcribe.py")
         if FileManager.default.fileExists(atPath: nestedPath.path) {
             return nestedPath.path
         }
