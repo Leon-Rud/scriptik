@@ -13,6 +13,7 @@ final class AppState {
     var showSettings = false
     var showHistory = false
     var statusText = "Ready"
+    var showCopiedFeedback = false
 
     // Called with clipboard text when transcription finishes (used for toast)
     var onTranscriptionComplete: ((String) -> Void)?
@@ -102,6 +103,7 @@ final class AppState {
                 history.save(result)
                 history.refresh()
                 statusText = "Done — copied to clipboard"
+                triggerCopiedFeedback()
 
                 // Reset status after delay
                 try? await Task.sleep(for: .seconds(3))
@@ -112,6 +114,19 @@ final class AppState {
                 NSLog("Scriptik: transcription error: \(error)")
                 statusText = "Error: \(error.localizedDescription)"
             }
+        }
+    }
+
+    func cancelRecording() {
+        guard recorder.isRecording else { return }
+        playSound(.cancel)
+        _ = recorder.stopRecording()
+        // Delete the recording file
+        try? FileManager.default.removeItem(at: ConfigManager.recordingFile)
+        statusText = "Cancelled"
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            if statusText == "Cancelled" { statusText = "Ready" }
         }
     }
 
@@ -166,13 +181,14 @@ final class AppState {
 
     // MARK: - Sound Feedback
 
-    private enum SoundEvent { case begin, end }
+    private enum SoundEvent { case begin, end, cancel }
 
     private func playSound(_ event: SoundEvent) {
         let soundName: String
         switch event {
-        case .begin: soundName = "Ping"
-        case .end:   soundName = "Purr"
+        case .begin:  soundName = "Ping"
+        case .end:    soundName = "Purr"
+        case .cancel: soundName = "Funk"
         }
         if let sound = NSSound(named: NSSound.Name(soundName)) {
             sound.volume = 0.5
@@ -192,6 +208,15 @@ final class AppState {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         statusText = "Copied"
+        triggerCopiedFeedback()
+    }
+
+    private func triggerCopiedFeedback() {
+        showCopiedFeedback = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(1500))
+            showCopiedFeedback = false
+        }
     }
 
     /// Strips timestamp prefixes like "  [0.0s --> 2.3s] " and pause markers, returning plain text

@@ -36,6 +36,8 @@ private struct GeneralTab: View {
 
     var body: some View {
         Form {
+            Toggle("Launch at login", isOn: $config.launchAtLogin)
+
             Picker("Language", selection: $config.language) {
                 ForEach(ConfigManager.availableLanguages, id: \.self) { lang in
                     Text(languageLabel(lang)).tag(lang)

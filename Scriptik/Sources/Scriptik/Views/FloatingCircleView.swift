@@ -38,12 +38,42 @@ struct FloatingCircleView: View {
         }
         .frame(width: 40, height: 40)
         .contentShape(Circle())
+        .animation(.easeInOut(duration: 0.3), value: showCopied)
         .onTapGesture { appState.toggle() }
+        .overlay(alignment: .topTrailing) {
+            if appState.recorder.isRecording {
+                Button {
+                    appState.cancelRecording()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color(white: 0.15))
+                            .frame(width: 14, height: 14)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .buttonStyle(.plain)
+                .offset(x: 2, y: -2)
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: appState.recorder.isRecording)
+    }
+
+    private var showCopied: Bool {
+        appState.showCopiedFeedback && !appState.recorder.isRecording && !appState.transcriber.isTranscribing
     }
 
     @ViewBuilder
     private var centerContent: some View {
-        if appState.transcriber.isTranscribing {
+        if showCopied {
+            Image(systemName: "checkmark")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .transition(.scale.combined(with: .opacity))
+        } else if appState.transcriber.isTranscribing {
             // Pulsing ellipsis
             Image(systemName: "ellipsis")
                 .font(.system(size: 14, weight: .bold))
@@ -78,6 +108,7 @@ struct FloatingCircleView: View {
     }
 
     private var bgColor: Color {
+        if showCopied { return .green }
         if appState.recorder.isRecording { return .red }
         if appState.transcriber.isTranscribing { return .orange }
         return Color(white: 0.15)

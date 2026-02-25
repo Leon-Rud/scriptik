@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var circlePanel: FloatingPanel?
     private var toastPanel: FloatingPanel?
     private var toastDismissTask: Task<Void, Never>?
+    private var positionSaveTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Show the persistent floating circle button
@@ -33,11 +34,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - Right-Click Menu
+
+    @objc private func handleRightClick(_ recognizer: NSClickGestureRecognizer) {
+        guard let view = recognizer.view else { return }
+        let menu = NSMenu()
+
+        if appState.recorder.isRecording {
+            menu.addItem(withTitle: "Cancel Recording", action: #selector(menuCancelRecording), keyEquivalent: "")
+                .target = self
+            menu.addItem(.separator())
+        }
+
+        menu.addItem(withTitle: "Settings…", action: #selector(menuOpenSettings), keyEquivalent: "")
+            .target = self
+        menu.addItem(withTitle: "History", action: #selector(menuOpenHistory), keyEquivalent: "")
+            .target = self
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit Scriptik", action: #selector(menuQuit), keyEquivalent: "")
+            .target = self
+
+        let location = recognizer.location(in: view)
+        menu.popUp(positioning: nil, at: location, in: view)
+    }
+
+    @objc private func menuCancelRecording() { appState.cancelRecording() }
+    @objc private func menuOpenSettings() { appState.showSettings = true }
+    @objc private func menuOpenHistory() { appState.showHistory = true }
+    @objc private func menuQuit() { NSApp.terminate(nil) }
+
     private func showFloatingCircle() {
-        let size: CGFloat = 40
+        let size: CGFloat = 46
         let panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size))
 
-        if let screen = NSScreen.main {
+        let config = appState.config
+        if config.circlePositionX >= 0 && config.circlePositionY >= 0 {
+            panel.setFrameOrigin(NSPoint(x: config.circlePositionX, y: config.circlePositionY))
+        } else if let screen = NSScreen.main {
             let screenFrame = screen.visibleFrame
             let x = screenFrame.maxX - size - 16
             let y = screenFrame.minY + 16
@@ -48,7 +81,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             FloatingCircleView(appState: self.appState)
         }
 
+        // Right-click context menu
+        if let contentView = panel.contentView {
+            let rightClick = NSClickGestureRecognizer(target: self, action: #selector(handleRightClick(_:)))
+            rightClick.buttonMask = 0x2
+            contentView.addGestureRecognizer(rightClick)
+        }
+
         circlePanel = panel
+
+        // Observe panel moves to persist position (debounced)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(circlePanelDidMove(_:)),
+            name: NSWindow.didMoveNotification, object: panel
+        )
+    }
+
+    @objc private func circlePanelDidMove(_ notification: Notification) {
+        positionSaveTask?.cancel()
+        positionSaveTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let self, let frame = self.circlePanel?.frame else { return }
+            self.appState.config.circlePositionX = Double(frame.origin.x)
+            self.appState.config.circlePositionY = Double(frame.origin.y)
+            self.appState.config.save()
+        }
     }
 
     private func showToast(text: String) {

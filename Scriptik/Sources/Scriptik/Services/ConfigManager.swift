@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 import SwiftUI
 
 @Observable
@@ -13,6 +14,17 @@ final class ConfigManager {
     var includeTimestamps = false
     var language = "auto"
     var whisperVenv: String
+    var circlePositionX: Double = -1
+    var circlePositionY: Double = -1
+    var launchAtLogin: Bool = false {
+        didSet {
+            if launchAtLogin {
+                try? SMAppService.mainApp.register()
+            } else {
+                try? SMAppService.mainApp.unregister()
+            }
+        }
+    }
 
     // MARK: - Path constants
 
@@ -36,6 +48,7 @@ final class ConfigManager {
         whisperVenv = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".local/share/scriptik/venv").path
         load()
+        launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     // MARK: - Load config
@@ -79,6 +92,10 @@ final class ConfigManager {
                 language = value
             case "WHISPER_VENV":
                 if !value.isEmpty { whisperVenv = value }
+            case "CIRCLE_POSITION_X":
+                if let d = Double(value) { circlePositionX = d }
+            case "CIRCLE_POSITION_Y":
+                if let d = Double(value) { circlePositionY = d }
             default:
                 break
             }
@@ -106,6 +123,8 @@ final class ConfigManager {
         lines.append("INCLUDE_TIMESTAMPS=\"\(includeTimestamps)\"")
         lines.append("LANGUAGE=\"\(language)\"")
         lines.append("WHISPER_VENV=\"\(whisperVenv)\"")
+        lines.append("CIRCLE_POSITION_X=\"\(circlePositionX)\"")
+        lines.append("CIRCLE_POSITION_Y=\"\(circlePositionY)\"")
         lines.append("")
 
         let content = lines.joined(separator: "\n")
