@@ -42,11 +42,11 @@ mkdir -p "$STAGE_BUNDLE/Contents/Resources"
 # Copy binary
 cp "$BUILT_BINARY" "$STAGE_BUNDLE/Contents/MacOS/$BINARY_NAME"
 
-# Copy resource bundle if it exists
-RESOURCE_BUNDLE="$("$SWIFT" build -c release --disable-sandbox --show-bin-path)/${BINARY_NAME}_${BINARY_NAME}.bundle"
-if [ -d "$RESOURCE_BUNDLE" ]; then
-    cp -R "$RESOURCE_BUNDLE" "$STAGE_BUNDLE/Contents/Resources/"
-fi
+# Copy all SPM resource bundles (app + dependencies like KeyboardShortcuts)
+BIN_PATH="$("$SWIFT" build -c release --disable-sandbox --show-bin-path)"
+for bundle in "$BIN_PATH"/*.bundle; do
+    [ -d "$bundle" ] && cp -R "$bundle" "$STAGE_BUNDLE/Contents/Resources/"
+done
 
 # Generate app icon if not yet built
 ICON_FILE="$PROJECT_DIR/Sources/Scriptik/Resources/AppIcon.icns"
@@ -67,7 +67,11 @@ find "$STAGE_BUNDLE" -exec xattr -c {} \; 2>/dev/null || true
 
 # Codesign with stable identity (preserves Accessibility permission across rebuilds)
 # Falls back to ad-hoc if "Scriptik Dev" identity not found
+# Try Scriptik Dev, fall back to RecordToggle Dev (legacy name), then ad-hoc
 SIGN_IDENTITY="Scriptik Dev"
+if ! security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY"; then
+    SIGN_IDENTITY="RecordToggle Dev"
+fi
 if ! security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY"; then
     SIGN_IDENTITY="-"
 fi

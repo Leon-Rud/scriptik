@@ -3,72 +3,88 @@ import SwiftUI
 import KeyboardShortcuts
 
 @main
-struct ScriptikApp {
-    static func main() {
-        let app = NSApplication.shared
-        app.setActivationPolicy(.regular)  // Show in dock
+struct ScriptikApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
-        ProcessInfo.processInfo.disableAutomaticTermination("Scriptik")
-
-        let delegate = AppDelegate()
-        app.delegate = delegate
-
-        withExtendedLifetime(delegate) {
-            app.run()
+    var body: some Scene {
+        MenuBarExtra {
+            MenuBarView(appState: appDelegate.appState)
+        } label: {
+            Image(systemName: appDelegate.appState.menuBarIcon)
         }
+        .menuBarExtraStyle(.menu)
     }
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var mainWindow: NSWindow!
-    private let appState = AppState()
+    let appState = AppState()
+    private var circlePanel: FloatingPanel?
+    private var toastPanel: FloatingPanel?
+    private var toastDismissTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let contentView = MainView(
-            appState: appState,
-            openSettings: openSettings,
-            openHistory: openHistory
-        )
+        // Show the persistent floating circle button
+        showFloatingCircle()
 
-        mainWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 520),
-            styleMask: [.titled, .closable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        mainWindow.title = "Scriptik"
-        mainWindow.titlebarAppearsTransparent = true
-        mainWindow.isMovableByWindowBackground = true
-        mainWindow.contentViewController = NSHostingController(rootView: contentView)
-        mainWindow.center()
-        mainWindow.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        // Wire up transcription toast
+        appState.onTranscriptionComplete = { [weak self] text in
+            self?.showToast(text: text)
+        }
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+    private func showFloatingCircle() {
+        let size: CGFloat = 40
+        let panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size))
+
+        if let screen = NSScreen.main {
+            let screenFrame = screen.visibleFrame
+            let x = screenFrame.maxX - size - 16
+            let y = screenFrame.minY + 16
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+        }
+
+        panel.show {
+            FloatingCircleView(appState: self.appState)
+        }
+
+        circlePanel = panel
     }
 
-    private func openSettings() {
-        let controller = NSHostingController(rootView: SettingsView(config: appState.config))
-        let window = NSWindow(contentViewController: controller)
-        window.title = "Settings"
-        window.setContentSize(NSSize(width: 420, height: 300))
-        window.styleMask = [.titled, .closable]
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
+    private func showToast(text: String) {
+        toastDismissTask?.cancel()
+        toastPanel?.orderOut(nil)
+        toastPanel = nil
 
-    private func openHistory() {
-        let controller = NSHostingController(rootView: HistoryView(history: appState.history))
-        let window = NSWindow(contentViewController: controller)
-        window.title = "History"
-        window.setContentSize(NSSize(width: 700, height: 500))
-        window.styleMask = [.titled, .closable, .resizable]
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        let toastWidth: CGFloat = 320
+        let toastHeight: CGFloat = 130
+        let panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: toastWidth, height: toastHeight))
+
+        // Position above the circle panel; clamp to screen edges
+        if let screen = NSScreen.main {
+            let circleFrame = circlePanel?.frame ?? NSRect(
+                x: screen.visibleFrame.midX - 40,
+                y: screen.visibleFrame.minY + 16,
+                width: 80, height: 80
+            )
+            let x = max(screen.visibleFrame.minX + 8,
+                        min(circleFrame.midX - toastWidth / 2,
+                            screen.visibleFrame.maxX - toastWidth - 8))
+            let y = circleFrame.maxY + 8
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+        }
+
+        panel.show {
+            ResultToastView(text: text)
+        }
+
+        toastPanel = panel
+
+        // Auto-dismiss after 6 seconds
+        toastDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(6))
+            self?.toastPanel?.orderOut(nil)
+            self?.toastPanel = nil
+        }
     }
 }

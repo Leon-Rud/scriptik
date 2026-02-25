@@ -16,6 +16,8 @@
     <string>1.0.0</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>LSUIElement</key>
+    <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Scriptik needs microphone access to record audio for transcription.</string>
 </dict>

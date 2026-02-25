@@ -107,12 +107,13 @@ struct MainView: View {
                     WaveformView(
                         levels: appState.recorder.levels,
                         barCount: 30,
-                        barSpacing: 2,
+                        barSpacing: 3,
                         minHeight: 2,
                         maxHeight: 50,
-                        color: .red
+                        color: .red,
+                        mirror: true
                     )
-                    .frame(height: 50)
+                    .frame(height: 60)
 
                     Text(formatTime(appState.recorder.elapsedTime))
                         .font(.system(.caption, design: .monospaced))
@@ -122,7 +123,7 @@ struct MainView: View {
                 WaveformView(
                     levels: Array(repeating: Float(0.05), count: 30),
                     barCount: 30,
-                    barSpacing: 2,
+                    barSpacing: 3,
                     minHeight: 2,
                     maxHeight: 50,
                     color: .secondary

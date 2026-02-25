@@ -107,6 +107,7 @@ private struct ModelTab: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     config.whisperModel = model.name
+                    config.save()
                 }
                 .padding(.vertical, 2)
             }

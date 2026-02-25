@@ -3,29 +3,38 @@ import SwiftUI
 struct RecordingIndicator: View {
     let elapsedTime: TimeInterval
     let levels: [Float]
-    @State private var isPulsing = false
+    @State private var appear = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            // Pulsing red dot
+        ZStack {
+            // Blurred dark circle background
             Circle()
-                .fill(.red)
-                .frame(width: 10, height: 10)
-                .scaleEffect(isPulsing ? 1.2 : 0.8)
-                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: isPulsing)
+                .fill(.ultraThinMaterial)
+                .overlay(Circle().fill(Color.black.opacity(0.45)))
 
-            // Timer
-            Text(formatTime(elapsedTime))
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(.primary)
+            VStack(spacing: 6) {
+                // Animated waveform
+                WaveformView(
+                    levels: levels,
+                    barCount: 10,
+                    barSpacing: 2.5,
+                    minHeight: 3,
+                    maxHeight: 28,
+                    color: .red
+                )
+                .frame(height: 32)
 
-            // Mini waveform
-            WaveformView(levels: levels, barCount: 12, barSpacing: 1.5, minHeight: 2, maxHeight: 16, color: .red)
+                // Elapsed time
+                Text(formatTime(elapsedTime))
+                    .font(.system(.caption, design: .monospaced, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
-        .onAppear { isPulsing = true }
+        .frame(width: 100, height: 100)
+        .scaleEffect(appear ? 1 : 0.7)
+        .opacity(appear ? 1 : 0)
+        .animation(.spring(duration: 0.3), value: appear)
+        .onAppear { appear = true }
     }
 
     private func formatTime(_ time: TimeInterval) -> String {
