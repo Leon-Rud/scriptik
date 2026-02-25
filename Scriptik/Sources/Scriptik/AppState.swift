@@ -72,7 +72,6 @@ final class AppState {
     }
 
     private func stopRecording() {
-        playSound(.end)
         guard let url = recorder.stopRecording() else {
             statusText = "Too short"
             return
