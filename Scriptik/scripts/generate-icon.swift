@@ -1,7 +1,6 @@
 #!/usr/bin/env swift
 // Generates AppIcon.icns for Scriptik
-// Polished macOS-style rounded square icon with microphone
-// Mic shape based on Bootstrap Icons mic-fill (MIT license)
+// Curly brackets with waveform — code meets audio
 
 import Cocoa
 
@@ -42,94 +41,46 @@ func squirclePath(in rect: CGRect, cornerRadius: CGFloat) -> CGPath {
     return path
 }
 
-/// Build mic path in a 16x16 coordinate space (Bootstrap mic-fill, MIT license)
-/// Then transform to be centered in the icon at the desired scale.
-/// The mic SVG viewBox is 16x16. The mic body spans roughly x:5-11, y:3-11.
-/// The cradle+stem spans roughly x:3-13, y:7-16.
-/// Visual center of the whole mic shape is around (8, 9.5) in SVG coords.
-func micPath(centerX: CGFloat, centerY: CGFloat, height: CGFloat) -> CGPath {
-    // The mic in SVG coords spans from y=3 (top of capsule) to y=16 (bottom of base)
-    // Total height in SVG units = 13
-    let svgH: CGFloat = 13.0
-    let scale = height / svgH
-
-    // We want SVG point (8, 9.5) to map to (centerX, centerY)
-    // SVG y increases downward, CG y increases upward, so we flip
-    let svgCenterX: CGFloat = 8.0
-    let svgCenterY: CGFloat = 9.5
-
-    // Transform: translate SVG origin to CG, flip Y, scale, center
-    var t = CGAffineTransform.identity
-    t = t.translatedBy(x: centerX, y: centerY)
-    t = t.scaledBy(x: scale, y: -scale)  // flip Y
-    t = t.translatedBy(x: -svgCenterX, y: -svgCenterY)
-
+/// Draw a curly bracket path (left or right)
+/// Coordinates are in normalized 0-1 space, scaled to icon size
+func curlyBracketPath(s: CGFloat, isLeft: Bool) -> CGPath {
     let path = CGMutablePath()
+    // Bracket dimensions relative to icon size
+    let topY = s * 0.22
+    let botY = s * 0.78
+    let midY = s * 0.50
+    let outerX: CGFloat
+    let innerX: CGFloat
+    let tipX: CGFloat
+    let curveOut: CGFloat
 
-    // Path 1: Mic capsule head — "M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0z"
-    // This is a rounded rect: top-left at (5,3), width 6, height 8, with radius 3
-    // Decomposed: move to (5,3), arc to (11,3) via top, line to (11,8),
-    //             arc to (5,8) via bottom, close
-    // Actually it's: M5,3 then arc(rx=3,ry=3) to (11,3), v5 to (11,8),
-    //                arc(rx=3,ry=3) to (5,8), close
-    // Simpler: it's a capsule from (5,3)-(11,11) with corner radius 3
-    let capsule = CGRect(x: 5, y: 3, width: 6, height: 8)
-    let capsulePath = CGPath(roundedRect: capsule, cornerWidth: 3, cornerHeight: 3, transform: &t)
-    path.addPath(capsulePath)
+    if isLeft {
+        outerX = s * 0.30
+        innerX = s * 0.24
+        tipX = s * 0.19
+        curveOut = -s * 0.04
+    } else {
+        outerX = s * 0.70
+        innerX = s * 0.76
+        tipX = s * 0.81
+        curveOut = s * 0.04
+    }
 
-    // Path 2: Cradle + stem + base
-    // "M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5"
-    // This is complex SVG. Let's build it as simple geometric shapes instead.
-
-    // Left side of cradle: vertical line at x=3.5 from y=7 to y=8
-    // Then arc (radius 5) from (3,8) curving down to (8,13)
-    // Stem at x=8 from y=12.975 to y=15
-    // Base: horizontal line from (5.5,15) to (10.5,16) area
-
-    // Simplified approach: draw cradle as stroked path, stem, base
-    // We'll handle these as filled rects since we want a filled icon
-
-    // Actually, let's draw the cradle+stem as a compound shape
-    // Left arm: rect at x=3.25, y=6.75, w=0.75, h=1.5 with rounded ends
-    // Right arm: rect at x=12, y=6.75, w=0.75, h=1.5
-    // U-curve: we approximate with arcs
-
-    // For cleaner result, just draw simple geometry:
-
-    // Cradle left side
-    let cradleThick: CGFloat = 0.85
-    let leftArm = CGRect(x: 3.3, y: 6.8, width: cradleThick, height: 1.8)
-    path.addPath(CGPath(roundedRect: leftArm, cornerWidth: cradleThick/2,
-                        cornerHeight: cradleThick/2, transform: &t))
-
-    // Cradle right side
-    let rightArm = CGRect(x: 11.85, y: 6.8, width: cradleThick, height: 1.8)
-    path.addPath(CGPath(roundedRect: rightArm, cornerWidth: cradleThick/2,
-                        cornerHeight: cradleThick/2, transform: &t))
-
-    // Cradle bottom arc: a thick arc from left to right
-    // We'll use a donut segment approach
-    let cradleArc = CGMutablePath()
-    // In SVG coords, center of arc is at (8, 8), inner radius ~4, outer radius ~4.85
-    // Arc from 0 to pi (bottom half)
-    let arcCX: CGFloat = 8, arcCY: CGFloat = 8
-    let outerR: CGFloat = 4.85, innerR: CGFloat = 4.0
-    // Outer arc (clockwise in SVG = counter-clockwise in CG after flip)
-    cradleArc.addArc(center: CGPoint(x: arcCX, y: arcCY), radius: outerR,
-                     startAngle: 0, endAngle: .pi, clockwise: false)
-    // Inner arc back
-    cradleArc.addArc(center: CGPoint(x: arcCX, y: arcCY), radius: innerR,
-                     startAngle: .pi, endAngle: 0, clockwise: true)
-    cradleArc.closeSubpath()
-    path.addPath(cradleArc.copy(using: &t)!)
-
-    // Stem: vertical rect from y=12.5 to y=15
-    let stem = CGRect(x: 7.55, y: 12.5, width: 0.9, height: 2.5)
-    path.addPath(CGPath(roundedRect: stem, cornerWidth: 0.1, cornerHeight: 0.1, transform: &t))
-
-    // Base: horizontal rounded rect
-    let base = CGRect(x: 5.0, y: 15.0, width: 6.0, height: 1.0)
-    path.addPath(CGPath(roundedRect: base, cornerWidth: 0.5, cornerHeight: 0.5, transform: &t))
+    // Top arm
+    path.move(to: CGPoint(x: outerX, y: topY))
+    path.addQuadCurve(to: CGPoint(x: innerX, y: topY + s * 0.06),
+                      control: CGPoint(x: innerX, y: topY))
+    // Down to mid tip
+    path.addLine(to: CGPoint(x: innerX, y: midY - s * 0.06))
+    path.addQuadCurve(to: CGPoint(x: tipX, y: midY),
+                      control: CGPoint(x: innerX + curveOut, y: midY))
+    // Mid tip back out
+    path.addQuadCurve(to: CGPoint(x: innerX, y: midY + s * 0.06),
+                      control: CGPoint(x: innerX + curveOut, y: midY))
+    // Down to bottom
+    path.addLine(to: CGPoint(x: innerX, y: botY - s * 0.06))
+    path.addQuadCurve(to: CGPoint(x: outerX, y: botY),
+                      control: CGPoint(x: innerX, y: botY))
 
     return path
 }
@@ -143,6 +94,10 @@ func renderIcon(size: Int) -> NSImage {
         fatalError("No graphics context")
     }
 
+    ctx.setAllowsAntialiasing(true)
+    ctx.setShouldAntialias(true)
+    ctx.interpolationQuality = .high
+
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     let cx = s * 0.5
     let cy = s * 0.5
@@ -152,18 +107,18 @@ func renderIcon(size: Int) -> NSImage {
     // ========================================
     let margin = s * 0.04
     let bgRect = CGRect(x: margin, y: margin, width: s - margin * 2, height: s - margin * 2)
-    let cornerR = (s - margin * 2) * 0.22
+    let cornerR = (s - margin * 2) * 0.24  // 24% corner radius
     let bgPath = squirclePath(in: bgRect, cornerRadius: cornerR)
 
-    // Main gradient: rich blue to deep indigo
+    // Main gradient: Indigo (82,91,255) to (60,70,220)
     ctx.saveGState()
     ctx.addPath(bgPath)
     ctx.clip()
 
     let bgColors = [
-        CGColor(red: 0.32, green: 0.58, blue: 1.0, alpha: 1.0),   // Bright blue (top)
-        CGColor(red: 0.24, green: 0.42, blue: 0.95, alpha: 1.0),  // Mid blue
-        CGColor(red: 0.30, green: 0.24, blue: 0.80, alpha: 1.0),  // Deep indigo (bottom)
+        CGColor(red: 0.322, green: 0.357, blue: 1.0, alpha: 1.0),    // #525BFF (top)
+        CGColor(red: 0.28, green: 0.30, blue: 0.92, alpha: 1.0),     // Mid
+        CGColor(red: 0.235, green: 0.275, blue: 0.863, alpha: 1.0),  // #3C46DC (bottom)
     ]
     if let g = CGGradient(colorsSpace: colorSpace, colors: bgColors as CFArray,
                           locations: [0.0, 0.5, 1.0]) {
@@ -209,35 +164,50 @@ func renderIcon(size: Int) -> NSImage {
     ctx.restoreGState()
 
     // ========================================
-    // MICROPHONE (centered in icon)
+    // FOREGROUND: Curly brackets + waveform
     // ========================================
-    let micHeight = s * 0.52  // mic occupies ~52% of icon height
-    let mic = micPath(centerX: cx, centerY: cy, height: micHeight)
-
-    // Shadow
     ctx.saveGState()
     ctx.addPath(bgPath)
     ctx.clip()
-    ctx.setShadow(offset: CGSize(width: 0, height: -s * 0.01),
-                  blur: s * 0.03,
-                  color: CGColor(red: 0, green: 0, blue: 0.15, alpha: 0.30))
 
-    // Mic fill: gradient white-to-light-gray for 3D feel
-    ctx.saveGState()
-    ctx.addPath(mic)
-    ctx.clip()
-    let micColors = [
-        CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.98),
-        CGColor(red: 0.90, green: 0.92, blue: 0.96, alpha: 0.95),
-    ]
-    if let mg = CGGradient(colorsSpace: colorSpace, colors: micColors as CFArray,
-                           locations: [0.0, 1.0]) {
-        ctx.drawLinearGradient(mg,
-            start: CGPoint(x: cx, y: cy + micHeight * 0.5),
-            end: CGPoint(x: cx, y: cy - micHeight * 0.5),
-            options: [.drawsAfterEndLocation, .drawsBeforeStartLocation])
+    // Shadow for foreground elements
+    ctx.setShadow(offset: CGSize(width: 0, height: -s * 0.008),
+                  blur: s * 0.025,
+                  color: CGColor(red: 0, green: 0, blue: 0.15, alpha: 0.35))
+
+    // White foreground color with subtle gradient
+    let fgWhite = CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.95)
+
+    // -- Left curly bracket --
+    let leftBracket = curlyBracketPath(s: s, isLeft: true)
+    ctx.setStrokeColor(fgWhite)
+    ctx.setLineWidth(s * 0.032)
+    ctx.setLineCap(.round)
+    ctx.setLineJoin(.round)
+    ctx.addPath(leftBracket)
+    ctx.strokePath()
+
+    // -- Right curly bracket --
+    let rightBracket = curlyBracketPath(s: s, isLeft: false)
+    ctx.addPath(rightBracket)
+    ctx.strokePath()
+
+    // -- Waveform bars in the center --
+    let barCount = 5
+    let barHeights: [CGFloat] = [0.06, 0.12, 0.19, 0.10, 0.05]
+    let waveWidth = s * 0.22
+    let waveStartX = cx - waveWidth / 2
+
+    ctx.setLineWidth(s * 0.028)
+
+    for i in 0..<barCount {
+        let x = waveStartX + CGFloat(i) / CGFloat(barCount - 1) * waveWidth
+        let h = s * barHeights[i]
+        ctx.move(to: CGPoint(x: x, y: cy - h))
+        ctx.addLine(to: CGPoint(x: x, y: cy + h))
+        ctx.strokePath()
     }
-    ctx.restoreGState()
+
     ctx.restoreGState()
 
     image.unlockFocus()
