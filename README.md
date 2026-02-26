@@ -17,7 +17,9 @@
 
 Press once to **start recording**. Press again to **stop, transcribe, and paste** — all running locally on your machine.
 
-<!-- TODO: Add a demo GIF here showing the recording flow -->
+<p align="center">
+  <img src="demo.gif" alt="Scriptik demo" width="600">
+</p>
 
 ## Features
 
@@ -31,22 +33,6 @@ Press once to **start recording**. Press again to **stop, transcribe, and paste*
 - **Multi-language** — auto-detects English, Hebrew, and more
 - **Transcription history** — searchable history of past transcriptions
 - **Configurable** — model, language, prompts, pause thresholds, and more
-
-## How It Works
-
-```mermaid
-flowchart LR
-    A["🎙️ Press\nShortcut"] --> B["🔴 Record\nAudio"]
-    B --> C["⚡ Whisper\nTranscribes"]
-    C --> D["📋 Copied to\nClipboard"]
-    D --> E["📝 Auto-paste\ninto App"]
-
-    style A fill:#1e1e2e,stroke:#6366f1,color:#fff
-    style B fill:#dc2626,stroke:#991b1b,color:#fff
-    style C fill:#6366f1,stroke:#4f46e5,color:#fff
-    style D fill:#059669,stroke:#047857,color:#fff
-    style E fill:#1e1e2e,stroke:#6366f1,color:#fff
-```
 
 ## Getting Started
 
@@ -73,16 +59,6 @@ Then launch **Scriptik** from Applications or Spotlight.
 
 > **Permissions:** Grant Microphone and Accessibility access at **System Settings > Privacy & Security** for recording and auto-paste to work.
 
-### CLI-only (alternative)
-
-If you prefer a command-line tool without the native app:
-
-```bash
-git clone https://github.com/Leon-Rud/scriptik.git
-cd scriptik
-./install.sh
-```
-
 ## Usage
 
 1. Launch **Scriptik** from /Applications or Spotlight
@@ -93,12 +69,16 @@ cd scriptik
 
 **Right-click the circle** for Settings, History, and Quit.
 
-### Keyboard Shortcuts
+<details>
+<summary><strong>CLI-only alternative</strong></summary>
 
-| Shortcut | Action |
-|----------|--------|
-| Custom global hotkey | Toggle recording on/off |
-| Right-click circle | Open context menu |
+If you prefer a command-line tool without the native app:
+
+```bash
+git clone https://github.com/Leon-Rud/scriptik.git
+cd scriptik
+./install.sh
+```
 
 ### CLI Commands
 
@@ -109,6 +89,8 @@ scriptik-cli --status   # Check if currently recording
 scriptik-cli --log      # View recent log entries
 scriptik-cli --help     # Show help
 ```
+
+</details>
 
 ## Configuration
 
@@ -168,22 +150,6 @@ AI-assisted contributions are welcome, as long as they are well-tested and revie
 
 Please be respectful and constructive in all interactions.
 
-## Support
-
-If you find Scriptik useful, consider supporting its development:
-
-<p align="center">
-  <a href="https://buymeacoffee.com/leonrud">
-    <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://github.com/sponsors/Leon-Rud">
-    <img src="https://img.shields.io/badge/GitHub_Sponsors-EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="GitHub Sponsors">
-  </a>
-</p>
-
-Starring the repo is also a great way to show support! ⭐
-
 ## Uninstall
 
 ```bash
@@ -198,4 +164,4 @@ Removes the CLI script, Quick Action, config, and Whisper environment. To remove
 
 ## Author
 
-**Leon Rudenko** — [@Leon-Rud](https://github.com/Leon-Rud)
+**Leon Rudnitsky** — [@Leon-Rud](https://github.com/Leon-Rud)
