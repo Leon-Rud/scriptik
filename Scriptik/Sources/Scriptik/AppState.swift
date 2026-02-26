@@ -9,17 +9,25 @@ final class AppState {
     let history = HistoryManager()
     let recorder = AudioRecorder()
     let transcriber = Transcriber()
+    let transcriptionServer = TranscriptionServer()
 
     var showSettings = false
     var showHistory = false
     var statusText = "Ready"
     var showCopiedFeedback = false
 
-    // Called with clipboard text when transcription finishes (used for toast)
-    var onTranscriptionComplete: ((String) -> Void)?
+    // Transcription progress (0.0–1.0) and elapsed time
+    var transcriptionProgress: Double = 0
+    var transcriptionElapsed: TimeInterval = 0
 
     // The app that was active before recording started (for auto-paste)
     private var previousApp: NSRunningApplication?
+
+    // Progress estimation state
+    private var lastRecordingDuration: TimeInterval = 0
+    private var estimatedTranscriptionDuration: TimeInterval = 0
+    private var transcriptionStartTime: Date?
+    private var progressTimer: Timer?
 
     // Menubar icon name (SF Symbol) — changes based on state
     var menuBarIcon: String {
@@ -30,6 +38,7 @@ final class AppState {
 
     init() {
         setupKeyboardShortcut()
+        transcriptionServer.start(config: config)
     }
 
     private func setupKeyboardShortcut() {
@@ -73,6 +82,10 @@ final class AppState {
 
     private func stopRecording() {
         playSound(.end)
+
+        // Capture recording duration before stopping
+        lastRecordingDuration = recorder.elapsedTime
+
         guard let url = recorder.stopRecording() else {
             statusText = "Too short"
             return
@@ -81,10 +94,12 @@ final class AppState {
         _ = url  // URL is consumed by the transcriber via the recording file on disk
 
         statusText = "Transcribing..."
+        startProgressTimer()
 
         Task {
             do {
-                let result = try await transcriber.transcribe(config: config)
+                let result = try await transcriber.transcribe(config: config, server: transcriptionServer)
+                stopProgressTimer()
 
                 // Strip timestamps if user doesn't want them
                 let clipboardText = config.includeTimestamps ? result : stripTimestamps(result)
@@ -111,10 +126,15 @@ final class AppState {
                     statusText = "Ready"
                 }
             } catch {
+                stopProgressTimer()
                 NSLog("Scriptik: transcription error: \(error)")
                 statusText = "Error: \(error.localizedDescription)"
             }
         }
+    }
+
+    func modelDidChange() {
+        transcriptionServer.reloadModel(config.whisperModel)
     }
 
     func cancelRecording() {
@@ -128,6 +148,52 @@ final class AppState {
             try? await Task.sleep(for: .seconds(2))
             if statusText == "Cancelled" { statusText = "Ready" }
         }
+    }
+
+    // MARK: - Progress Estimation
+
+    private func startProgressTimer() {
+        estimatedTranscriptionDuration = Transcriber.estimatedDuration(
+            recordingDuration: lastRecordingDuration, model: config.whisperModel
+        )
+        transcriptionStartTime = Date()
+        transcriptionProgress = 0
+        transcriptionElapsed = 0
+
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateProgress()
+            }
+        }
+        if let timer = progressTimer {
+            RunLoop.main.add(timer, forMode: .common)
+        }
+    }
+
+    private func updateProgress() {
+        guard let start = transcriptionStartTime else { return }
+        let elapsed = Date().timeIntervalSince(start)
+        transcriptionElapsed = elapsed
+
+        // Asymptotic curve: approaches 1.0 but never reaches it
+        // At t = estimated, progress ≈ 0.92
+        let ratio = elapsed / estimatedTranscriptionDuration
+        transcriptionProgress = 1.0 - exp(-2.5 * ratio)
+    }
+
+    private func stopProgressTimer() {
+        progressTimer?.invalidate()
+        progressTimer = nil
+        transcriptionProgress = 0
+        transcriptionElapsed = 0
+        transcriptionStartTime = nil
+        estimatedTranscriptionDuration = 0
+    }
+
+    /// Estimated seconds remaining for the current transcription.
+    var estimatedTimeRemaining: TimeInterval {
+        guard estimatedTranscriptionDuration > 0 else { return 0 }
+        return max(0, estimatedTranscriptionDuration - transcriptionElapsed)
     }
 
     // MARK: - Auto-Paste

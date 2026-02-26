@@ -16,6 +16,7 @@ let package = Package(
             exclude: ["Resources/Info.plist", "Resources/AppIcon.icns", "Resources/__pycache__"],
             resources: [
                 .copy("Resources/transcribe.py"),
+                .copy("Resources/transcribe_server.py"),
             ]
         ),
     ]

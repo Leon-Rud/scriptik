@@ -9,23 +9,64 @@ Press once to **start recording**. Press again to **stop, transcribe, and copy t
 
 ## How it works
 
+```mermaid
+flowchart LR
+    A["🎙️ Press\nShortcut"] --> B["🔴 Record\nAudio"]
+    B --> C["⚡ Whisper\nTranscribes"]
+    C --> D["📋 Copied to\nClipboard"]
+    D --> E["📝 Auto-paste\ninto App"]
+
+    style A fill:#1e1e2e,stroke:#6366f1,color:#fff
+    style B fill:#dc2626,stroke:#991b1b,color:#fff
+    style C fill:#6366f1,stroke:#4f46e5,color:#fff
+    style D fill:#059669,stroke:#047857,color:#fff
+    style E fill:#1e1e2e,stroke:#6366f1,color:#fff
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Press       │     │  Native     │     │   Whisper    │     │  Copied to  │
-│  Shortcut    │────>│  Records    │────>│  Transcribes │────>│  Clipboard  │
-│  (start)     │     │  Audio      │     │  Locally     │     │  + paste    │
-└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+
+```mermaid
+graph TD
+    subgraph App["Scriptik.app"]
+        SC[ScriptikApp] --> AS[AppState]
+        AS --> AR[AudioRecorder]
+        AS --> TR[Transcriber]
+        AS --> TS[TranscriptionServer]
+        AS --> CM[ConfigManager]
+        AS --> HM[HistoryManager]
+    end
+
+    subgraph UI["UI Layer"]
+        FC[FloatingCircle] --> |"toggle / cancel"| AS
+        MB[MenuBarView] --> AS
+        SV[SettingsView] --> CM
+    end
+
+    subgraph Python["Persistent Python Server"]
+        TS --> |"stdin JSON"| PS[transcribe_server.py]
+        PS --> |"stdout JSON"| TS
+        PS --> MW["mlx-whisper\n(Apple Silicon)"]
+        PS --> OW["openai-whisper\n(fallback)"]
+    end
+
+    TR --> |"server ready?"| TS
+    TR --> |"fallback"| OP[transcribe.py\nOne-shot]
+
+    style App fill:#1e1e2e,stroke:#6366f1,color:#fff
+    style UI fill:#1e1e2e,stroke:#818cf8,color:#fff
+    style Python fill:#1e1e2e,stroke:#059669,color:#fff
 ```
 
 **Features:**
-- **Native macOS app** — windowed app with Dock icon
+- **Menu bar app** — lives in the menu bar with a floating circle indicator
 - **Global hotkey** — toggle recording from any app
 - **100% local** — no audio leaves your machine
-- **Floating indicator** — shows recording time and live waveform
+- **Persistent Whisper server** — model stays loaded in memory, eliminating cold start
+- **Floating circle** — shows live waveform while recording, progress ring while transcribing
+- **mlx-whisper acceleration** — 5-10x faster on Apple Silicon
 - Auto-detects language (English, Hebrew, and more)
+- Auto-paste transcription into the previously active app
 - Timestamps and pause detection in output
 - Filters Whisper hallucinations automatically
-- Configurable model, prompts, and thresholds
+- Configurable model, language, prompts, and thresholds
 - Transcription history with search
 
 ## Prerequisites
@@ -67,15 +108,15 @@ cd scriptik
 ### Native App
 
 1. Launch **Scriptik** from /Applications or Spotlight
-2. Click **Record** or press your global shortcut to start
-3. A floating indicator appears showing elapsed time and audio waveform
-4. Click **Stop** or press the shortcut again
-5. Transcription runs locally — the result card shows your text
-6. Text is automatically copied to clipboard (and auto-pasted if enabled)
+2. A floating circle appears on screen — click it or press your global shortcut to start recording
+3. The circle shows a live waveform and elapsed time while recording
+4. Click the circle again or press the shortcut to stop
+5. A progress ring animates while Whisper transcribes locally
+6. Text is automatically copied to clipboard (and auto-pasted into the previously active app)
 
-**Settings** — configure Whisper model, language, shortcut, and more from the app window.
+**Right-click the circle** for Settings, History, and Quit.
 
-**History** — browse and search all past transcriptions.
+**Menu bar** — also accessible from the menu bar icon.
 
 > **Auto-paste setup:** For auto-paste to work, grant Accessibility permission at
 > **System Settings > Privacy & Security > Accessibility** and enable Scriptik.
@@ -121,13 +162,15 @@ LANGUAGE="auto"
 
 ### Model comparison
 
+Speed estimates for a ~10s recording on Apple Silicon (with persistent server — no cold start):
+
 | Model    | Size   | Speed    | Accuracy |
 |----------|--------|----------|----------|
-| `tiny`   | 75MB   | ~1s      | Basic    |
-| `base`   | 140MB  | ~2s      | Good     |
-| `small`  | 500MB  | ~5s      | Great    |
-| `medium` | 1.5GB  | ~15s     | Excellent|
-| `large`  | 3GB    | ~30s     | Best     |
+| `tiny`   | 75MB   | ~0.5s    | Basic    |
+| `base`   | 140MB  | ~1s      | Good     |
+| `small`  | 500MB  | ~2s      | Great    |
+| `medium` | 1.5GB  | ~4s      | Excellent|
+| `large`  | 3GB    | ~8s      | Best     |
 
 ## Building from source
 

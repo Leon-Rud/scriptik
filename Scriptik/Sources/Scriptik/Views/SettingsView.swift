@@ -8,6 +8,7 @@ extension KeyboardShortcuts.Name {
 
 struct SettingsView: View {
     @Bindable var config: ConfigManager
+    var onModelChange: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -15,7 +16,7 @@ struct SettingsView: View {
             GeneralTab(config: config)
                 .tabItem { Label("General", systemImage: "gear") }
 
-            ModelTab(config: config)
+            ModelTab(config: config, onModelChange: onModelChange)
                 .tabItem { Label("Model", systemImage: "cpu") }
 
             ShortcutTab()
@@ -24,7 +25,7 @@ struct SettingsView: View {
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 420, height: 300)
+        .frame(width: 420, height: 340)
         .onDisappear { config.save() }
     }
 }
@@ -77,6 +78,7 @@ private struct GeneralTab: View {
 
 private struct ModelTab: View {
     @Bindable var config: ConfigManager
+    var onModelChange: (() -> Void)?
 
     private let modelInfo: [(name: String, size: String, speed: String, accuracy: String)] = [
         ("tiny", "75 MB", "~1s", "Basic"),
@@ -88,16 +90,29 @@ private struct ModelTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Whisper Model")
-                .font(.headline)
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.blue)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Whisper Model")
+                        .font(.headline)
+                    Text("Choose the model for speech recognition. Larger models are more accurate but slower.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             ForEach(modelInfo, id: \.name) { model in
                 ModelRow(
                     model: model,
-                    isSelected: config.whisperModel == model.name
+                    isSelected: config.whisperModel == model.name,
+                    isRecommended: model.name == "medium"
                 ) {
                     config.whisperModel = model.name
                     config.save()
+                    onModelChange?()
                 }
             }
         }
@@ -266,17 +281,29 @@ private struct AboutTab: View {
 private struct ModelRow: View {
     let model: (name: String, size: String, speed: String, accuracy: String)
     let isSelected: Bool
+    var isRecommended: Bool = false
     var action: () -> Void
     @State private var isHovered = false
 
     var body: some View {
         HStack {
-            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(isSelected ? .blue : .secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(model.name.capitalized)
+                        .fontWeight(isSelected ? .semibold : .regular)
 
-            VStack(alignment: .leading) {
-                Text(model.name.capitalized)
-                    .fontWeight(isSelected ? .semibold : .regular)
+                    if isRecommended {
+                        Text("Recommended")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.green)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(
+                                Capsule()
+                                    .fill(Color.green.opacity(0.15))
+                            )
+                    }
+                }
                 Text("\(model.size) \u{2022} \(model.speed) \u{2022} \(model.accuracy)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -284,15 +311,24 @@ private struct ModelRow: View {
 
             Spacer()
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isHovered ? Color.primary.opacity(0.08) : Color.clear)
+                .fill(isSelected ? Color.blue.opacity(0.08) : isHovered ? Color.primary.opacity(0.06) : Color.clear)
         )
+        .overlay(alignment: .leading) {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.blue)
+                    .frame(width: 3)
+                    .padding(.vertical, 4)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }

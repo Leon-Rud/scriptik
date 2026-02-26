@@ -112,8 +112,10 @@ final class AudioRecorder {
         recorder.updateMeters()
         let power = recorder.averagePower(forChannel: 0)
 
-        // Normalize dB range (-60...0) to linear (0...1)
-        let normalized = max(0, min(1, (power + 60) / 60))
+        // Normalize dB range (-50...0) to linear (0...1) with power curve
+        // for more visible voice dynamics
+        let linear = max(0, min(1, (power + 50) / 50))
+        let normalized = pow(linear, 0.4)
 
         currentLevel = normalized
 
