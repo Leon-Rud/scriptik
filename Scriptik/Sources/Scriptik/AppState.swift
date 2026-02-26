@@ -135,9 +135,11 @@ final class AppState {
     private var hasShownAccessibilityHint = false
 
     private func pasteIntoPreviousApp() async {
-        guard let app = previousApp, !app.isTerminated else { return }
+        guard let app = previousApp, !app.isTerminated else {
+            NSLog("Scriptik: auto-paste skipped — no previous app or terminated")
+            return
+        }
 
-        // If Accessibility isn't granted, show a one-time hint but still try the paste
         if !AXIsProcessTrusted() && !hasShownAccessibilityHint {
             hasShownAccessibilityHint = true
             NSLog("Scriptik: Accessibility not granted — opening System Settings")
@@ -145,31 +147,29 @@ final class AppState {
         }
 
         let pid = app.processIdentifier
-        let bundleId = app.bundleIdentifier ?? ""
+        NSLog("Scriptik: activating \(app.localizedName ?? "?") (pid \(pid)) for paste")
 
-        // Step 1: Bring target app to front
-        if !bundleId.isEmpty {
-            let openProc = Process()
-            openProc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-            openProc.arguments = ["-b", bundleId]
-            try? openProc.run()
-            openProc.waitUntilExit()
-        } else {
-            app.activate()
+        // Step 1: Activate target app (non-blocking, matches AudioWhisper approach)
+        app.activate()
+
+        // Step 2: Wait for activation via notification (event-driven, 2s timeout)
+        let activated = await waitForActivation(pid: pid, timeout: 2.0)
+        if !activated {
+            NSLog("Scriptik: target app did not become frontmost within timeout")
         }
 
-        // Step 2: Wait for the app to actually become frontmost
-        for _ in 0..<40 {
-            try? await Task.sleep(for: .milliseconds(50))
-            if NSWorkspace.shared.frontmostApplication?.processIdentifier == pid {
-                break
-            }
+        // Step 3: Settle time
+        try? await Task.sleep(for: .milliseconds(150))
+
+        // Step 4: Verify pasteboard has our text before pasting
+        let pb = NSPasteboard.general
+        let expected = pb.string(forType: .string)
+        if expected == nil || expected!.isEmpty {
+            NSLog("Scriptik: pasteboard empty, skipping paste")
+            return
         }
 
-        // Step 3: Extra settle time
-        try? await Task.sleep(for: .milliseconds(200))
-
-        // Step 4: Send Cmd+V via CGEvent
+        // Step 5: Send Cmd+V
         let source = CGEventSource(stateID: .hidSystemState)
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
@@ -177,6 +177,40 @@ final class AppState {
         keyUp?.flags = .maskCommand
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
+
+        NSLog("Scriptik: Cmd+V posted to \(app.localizedName ?? "?")")
+    }
+
+    private func waitForActivation(pid: pid_t, timeout: TimeInterval) async -> Bool {
+        // If already frontmost, return immediately
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier == pid {
+            return true
+        }
+
+        // Wait for didActivateApplicationNotification
+        return await withCheckedContinuation { continuation in
+            var observer: NSObjectProtocol?
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+
+            observer = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didActivateApplicationNotification,
+                object: nil, queue: .main
+            ) { note in
+                if let activated = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication),
+                   activated.processIdentifier == pid {
+                    timer.cancel()
+                    if let obs = observer { NSWorkspace.shared.notificationCenter.removeObserver(obs) }
+                    continuation.resume(returning: true)
+                }
+            }
+
+            timer.schedule(deadline: .now() + timeout)
+            timer.setEventHandler {
+                if let obs = observer { NSWorkspace.shared.notificationCenter.removeObserver(obs) }
+                continuation.resume(returning: false)
+            }
+            timer.resume()
+        }
     }
 
     // MARK: - Sound Feedback

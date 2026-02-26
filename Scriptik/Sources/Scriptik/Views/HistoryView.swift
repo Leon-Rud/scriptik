@@ -50,11 +50,10 @@ struct HistoryView: View {
                             Text(entry.date, format: .dateTime)
                                 .font(.headline)
                             Spacer()
-                            Button("Copy") {
+                            CopyButton {
                                 NSPasteboard.general.clearContents()
                                 NSPasteboard.general.setString(entry.content, forType: .string)
                             }
-                            .buttonStyle(.bordered)
                         }
 
                         Divider()
@@ -75,5 +74,29 @@ struct HistoryView: View {
         }
         .frame(minWidth: 600, minHeight: 400)
         .onAppear { history.refresh() }
+    }
+}
+
+private struct CopyButton: View {
+    var action: () -> Void
+    @State private var isHovered = false
+    @State private var showCheck = false
+
+    var body: some View {
+        Button {
+            action()
+            showCheck = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                showCheck = false
+            }
+        } label: {
+            Label(showCheck ? "Copied" : "Copy",
+                  systemImage: showCheck ? "checkmark" : "doc.on.doc")
+        }
+        .buttonStyle(.bordered)
+        .opacity(isHovered ? 1.0 : 0.8)
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .animation(.easeInOut(duration: 0.2), value: showCheck)
     }
 }
