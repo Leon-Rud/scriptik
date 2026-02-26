@@ -1,9 +1,12 @@
 <p align="center">
-  <h1 align="center">Scriptik</h1>
+  <img src="icon.png" alt="Scriptik" width="128">
 </p>
 
+<h1 align="center">Scriptik</h1>
+
 <p align="center">
-  <b>Open-source macOS voice-to-text app — record, transcribe locally with Whisper, and paste anywhere.</b>
+  <b>Voice-to-text for macOS — record, transcribe locally with Whisper, and paste anywhere.<br>
+  Timestamps, pause detection, and auto-paste. No cloud, no subscription, no data leaves your machine.</b>
 </p>
 
 <p align="center">
@@ -15,7 +18,7 @@
 
 ---
 
-Press once to **start recording**. Press again to **stop, transcribe, and paste** — all running locally on your machine.
+Press a shortcut to **start recording**. Press again to **stop, transcribe, and paste** — all running 100% locally on your Mac.
 
 <p align="center">
   <img src="demo.gif" alt="Scriptik demo" width="600">
