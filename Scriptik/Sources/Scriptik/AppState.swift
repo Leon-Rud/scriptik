@@ -43,6 +43,28 @@ final class AppState {
         requestPermissionsOnFirstLaunch()
     }
 
+    // MARK: - Permission Status
+
+    var isMicrophoneGranted: Bool {
+        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+    }
+
+    var isAccessibilityGranted: Bool {
+        AXIsProcessTrusted()
+    }
+
+    func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func requestMicrophonePermission() {
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            NSLog("Scriptik: microphone permission \(granted ? "granted" : "denied")")
+        }
+    }
+
     /// Prompt for microphone and accessibility permissions on first launch
     /// so the user grants them before their first recording.
     private func requestPermissionsOnFirstLaunch() {
@@ -51,9 +73,14 @@ final class AppState {
             NSLog("Scriptik: microphone permission \(granted ? "granted" : "denied")")
         }
 
-        // Accessibility: triggers the system dialog if not yet granted
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        // Accessibility: only prompt once via system dialog (tracked in UserDefaults).
+        // After the first prompt, we check silently and guide through Settings UI instead.
+        let hasRequested = UserDefaults.standard.bool(forKey: "hasRequestedAccessibility")
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): !hasRequested] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
+        if !hasRequested {
+            UserDefaults.standard.set(true, forKey: "hasRequestedAccessibility")
+        }
         NSLog("Scriptik: accessibility trusted = \(trusted)")
     }
 
@@ -133,12 +160,17 @@ final class AppState {
                 // Save to history and refresh
                 history.save(result)
                 history.refresh()
-                statusText = "Done — copied to clipboard"
+                // Keep accessibility warning if it was set by pasteIntoPreviousApp,
+                // otherwise show the normal success message
+                if !statusText.contains("Accessibility") {
+                    statusText = "Done — copied to clipboard"
+                }
                 triggerCopiedFeedback()
 
                 // Reset status after delay
+                let currentStatus = statusText
                 try? await Task.sleep(for: .seconds(3))
-                if statusText == "Done — copied to clipboard" {
+                if statusText == currentStatus {
                     statusText = "Ready"
                 }
             } catch {
@@ -214,8 +246,6 @@ final class AppState {
 
     // MARK: - Auto-Paste
 
-    private var hasShownAccessibilityHint = false
-
     private func pasteIntoPreviousApp() async {
         guard let app = previousApp, !app.isTerminated else {
             NSLog("Scriptik: auto-paste skipped — no previous app or terminated")
@@ -223,12 +253,11 @@ final class AppState {
         }
 
         // Accessibility permission is required to post keyboard events to other apps.
-        // AXIsProcessTrustedWithOptions with kAXTrustedCheckOptionPrompt shows the
-        // native system dialog asking the user to grant access.
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): !hasShownAccessibilityHint] as CFDictionary
-        if !AXIsProcessTrustedWithOptions(options) {
-            hasShownAccessibilityHint = true
+        // Check silently — the onboarding prompt was already shown on first launch.
+        // If not granted, show a helpful status message instead of failing silently.
+        if !AXIsProcessTrusted() {
             NSLog("Scriptik: auto-paste skipped — accessibility not granted")
+            statusText = "Copied — enable Accessibility for auto-paste"
             return
         }
 

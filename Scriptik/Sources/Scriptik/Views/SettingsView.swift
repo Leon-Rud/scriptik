@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import KeyboardShortcuts
 
@@ -8,22 +9,44 @@ extension KeyboardShortcuts.Name {
 
 struct SettingsView: View {
     @Bindable var config: ConfigManager
+    var appState: AppState?
     var onModelChange: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @State private var allPermissionsGranted: Bool
+    @State private var permissionTimer: Timer?
+
+    init(config: ConfigManager, appState: AppState? = nil, onModelChange: (() -> Void)? = nil) {
+        self.config = config
+        self.appState = appState
+        self.onModelChange = onModelChange
+        let granted = appState == nil || (appState!.isMicrophoneGranted && appState!.isAccessibilityGranted)
+        self._allPermissionsGranted = State(initialValue: granted)
+    }
 
     var body: some View {
-        TabView {
-            GeneralTab(config: config)
-                .tabItem { Label("General", systemImage: "gear") }
+        Group {
+            if let appState, !allPermissionsGranted {
+                PermissionsSetupView(appState: appState, allGranted: $allPermissionsGranted)
+            } else {
+                TabView {
+                    GeneralTab(config: config)
+                        .tabItem { Label("General", systemImage: "gear") }
 
-            ModelTab(config: config, onModelChange: onModelChange)
-                .tabItem { Label("Model", systemImage: "cpu") }
+                    ModelTab(config: config, onModelChange: onModelChange)
+                        .tabItem { Label("Model", systemImage: "cpu") }
 
-            ShortcutTab()
-                .tabItem { Label("Shortcut", systemImage: "command") }
+                    ShortcutTab()
+                        .tabItem { Label("Shortcut", systemImage: "command") }
 
-            AboutTab()
-                .tabItem { Label("About", systemImage: "info.circle") }
+                    if let appState {
+                        PermissionsTab(appState: appState)
+                            .tabItem { Label("Permissions", systemImage: "lock.shield") }
+                    }
+
+                    AboutTab()
+                        .tabItem { Label("About", systemImage: "info.circle") }
+                }
+            }
         }
         .frame(width: 420, height: 440)
         .onDisappear { config.save() }
@@ -245,6 +268,213 @@ extension NSEvent.SpecialKey {
             .f11, .f12, .f13, .f14, .f15, .f16, .f17, .f18, .f19, .f20
         ]
         return functionKeys.contains(self)
+    }
+}
+
+// MARK: - Permissions Setup (shown before full settings are unlocked)
+
+private struct PermissionsSetupView: View {
+    let appState: AppState
+    @Binding var allGranted: Bool
+    @State private var micGranted = false
+    @State private var accessibilityGranted = false
+    @State private var refreshTimer: Timer?
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(.blue)
+
+            Text("Welcome to Scriptik")
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Text("Grant these permissions to get started.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 10) {
+                PermissionRow(
+                    name: "Microphone",
+                    description: "Required to record audio for transcription.",
+                    icon: "mic.fill",
+                    isGranted: micGranted,
+                    action: {
+                        if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+                            appState.requestMicrophonePermission()
+                        } else if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                )
+
+                PermissionRow(
+                    name: "Accessibility",
+                    description: "Required for auto-paste (simulates Cmd+V). Scriptik does not read your keystrokes.",
+                    icon: "accessibility",
+                    isGranted: accessibilityGranted,
+                    action: { appState.openAccessibilitySettings() }
+                )
+            }
+            .padding(.horizontal)
+
+            if micGranted && !accessibilityGranted {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("After enabling in System Settings, this will update automatically.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding()
+        .onAppear { refreshPermissions(); startAutoRefresh() }
+        .onDisappear { refreshTimer?.invalidate() }
+    }
+
+    private func refreshPermissions() {
+        micGranted = appState.isMicrophoneGranted
+        accessibilityGranted = appState.isAccessibilityGranted
+        if micGranted && accessibilityGranted {
+            refreshTimer?.invalidate()
+            allGranted = true
+        }
+    }
+
+    private func startAutoRefresh() {
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            Task { @MainActor in refreshPermissions() }
+        }
+    }
+}
+
+// MARK: - Permissions Tab
+
+private struct PermissionsTab: View {
+    let appState: AppState
+    @State private var micGranted = false
+    @State private var accessibilityGranted = false
+    @State private var refreshTimer: Timer?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.blue)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Permissions")
+                        .font(.headline)
+                    Text("Scriptik needs these permissions to record and auto-paste.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            PermissionRow(
+                name: "Microphone",
+                description: "Required to record audio for transcription.",
+                icon: "mic.fill",
+                isGranted: micGranted,
+                action: {
+                    if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+                        appState.requestMicrophonePermission()
+                    } else if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            )
+
+            PermissionRow(
+                name: "Accessibility",
+                description: "Required for auto-paste (simulates Cmd+V). Scriptik does not read your keystrokes.",
+                icon: "accessibility",
+                isGranted: accessibilityGranted,
+                action: { appState.openAccessibilitySettings() }
+            )
+
+            if !accessibilityGranted {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("After enabling in System Settings, click Recheck or relaunch Scriptik.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
+
+                Button("Recheck Permissions") {
+                    refreshPermissions()
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding()
+        .onAppear { refreshPermissions(); startAutoRefresh() }
+        .onDisappear { refreshTimer?.invalidate() }
+    }
+
+    private func refreshPermissions() {
+        micGranted = appState.isMicrophoneGranted
+        accessibilityGranted = appState.isAccessibilityGranted
+    }
+
+    private func startAutoRefresh() {
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+            Task { @MainActor in refreshPermissions() }
+        }
+    }
+}
+
+private struct PermissionRow: View {
+    let name: String
+    let description: String
+    let icon: String
+    let isGranted: Bool
+    let action: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .font(.system(size: 20))
+                .foregroundStyle(isGranted ? .green : .red)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: icon)
+                        .font(.caption)
+                    Text(name)
+                        .fontWeight(.medium)
+                }
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if !isGranted {
+                Button("Open Settings") {
+                    action()
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isGranted ? Color.green.opacity(0.05) : Color.red.opacity(0.05))
+        )
     }
 }
 

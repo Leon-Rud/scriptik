@@ -67,7 +67,7 @@ make install
 
 Then launch **Scriptik** from Applications or Spotlight.
 
-> **Permissions:** Grant Microphone and Accessibility access at **System Settings > Privacy & Security** for recording and auto-paste to work.
+> **Permissions:** On first launch, Scriptik opens a setup screen that walks you through granting Microphone and Accessibility permissions. Once both are granted, the full settings unlock automatically.
 
 ## Usage
 
@@ -166,14 +166,22 @@ bash scripts/bundle.sh   # Create .app bundle
 
 The app bundle is output to `Scriptik/build/Scriptik.app`.
 
+**Optional: Stable code signing** - Without a signing certificate, the app uses ad-hoc signing and macOS will ask you to re-grant Accessibility permission after each rebuild. To avoid this (one-time setup):
+
+1. Open **Keychain Access**
+2. Menu: **Keychain Access > Certificate Assistant > Create a Certificate...**
+3. Name: `Scriptik Dev`, Identity Type: Self Signed Root, Certificate Type: Code Signing
+4. Click Create, then rebuild
+
 ## Troubleshooting
 
-| Problem                     | Solution                                                                   |
-| --------------------------- | -------------------------------------------------------------------------- |
-| Microphone not working      | **System Settings > Privacy & Security > Microphone** - enable Scriptik    |
-| Auto-paste not working      | **System Settings > Privacy & Security > Accessibility** - enable Scriptik |
-| Empty/wrong transcription   | Try a larger model in Settings, add context words to initial prompt        |
-| Global shortcut not working | Open Settings and re-set your preferred key combination                    |
+| Problem                     | Solution                                                                           |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| Microphone not working      | Open Settings > Permissions, click **Open Settings** next to Microphone            |
+| Auto-paste not working      | Open Settings > Permissions, click **Open Settings** next to Accessibility         |
+| Permissions keep resetting  | Create a "Scriptik Dev" signing certificate (see Building from Source)              |
+| Empty/wrong transcription   | Try a larger model in Settings, add context words to initial prompt                 |
+| Global shortcut not working | Open Settings and re-set your preferred key combination                             |
 
 ## Contributing
 

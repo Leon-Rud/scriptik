@@ -68,10 +68,30 @@ find "$STAGE_BUNDLE" -exec xattr -c {} \; 2>/dev/null || true
 # Clean __pycache__ from resource bundles
 find "$STAGE_BUNDLE" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
-# Codesign with stable identity (preserves Accessibility permission across rebuilds)
-# Falls back to ad-hoc if "Scriptik Dev" identity not found
+# Codesign with stable identity (preserves Accessibility permission across rebuilds).
+# A stable identity means macOS recognizes the app as the same after each rebuild,
+# so users don't have to re-grant Accessibility permission every time.
+#
+# To create the "Scriptik Dev" certificate (one-time setup):
+#   1. Open Keychain Access
+#   2. Menu: Keychain Access > Certificate Assistant > Create a Certificate...
+#   3. Name: "Scriptik Dev", Identity Type: Self Signed Root, Certificate Type: Code Signing
+#   4. Click Create
+#
+# Without this certificate, the app falls back to ad-hoc signing which works
+# but requires re-granting Accessibility permission after each rebuild.
 SIGN_IDENTITY="Scriptik Dev"
-if ! security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY"; then
+if ! security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTITY"; then
+    echo ""
+    echo "NOTE: '$SIGN_IDENTITY' code-signing certificate not found."
+    echo "Using ad-hoc signing. Accessibility permission may need re-granting after rebuilds."
+    echo ""
+    echo "To fix this (one-time setup):"
+    echo "  1. Open Keychain Access"
+    echo "  2. Menu: Keychain Access > Certificate Assistant > Create a Certificate..."
+    echo "  3. Name: \"Scriptik Dev\", Identity Type: Self Signed Root, Certificate Type: Code Signing"
+    echo "  4. Click Create, then rebuild"
+    echo ""
     SIGN_IDENTITY="-"
 fi
 codesign --force --sign "$SIGN_IDENTITY" \

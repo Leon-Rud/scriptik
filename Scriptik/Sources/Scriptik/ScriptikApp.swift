@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 import KeyboardShortcuts
 
@@ -25,6 +26,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Show the persistent floating circle button
         showFloatingCircle()
+
+        // Auto-open Settings on Permissions tab if any permission is missing
+        let micOK = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+        let accessOK = AXIsProcessTrusted()
+        if !micOK || !accessOK {
+            // Small delay so the menu bar icon registers first
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
+                openSettingsWindow()
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -56,9 +67,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func menuCancelRecording() { appState.cancelRecording() }
-    @objc private func menuOpenSettings() { appState.showSettings = true }
+    @objc private func menuOpenSettings() { openSettingsWindow() }
     @objc private func menuOpenHistory() { appState.showHistory = true }
     @objc private func menuQuit() { NSApp.terminate(nil) }
+
+    func openSettingsWindow() {
+        // Reuse existing window if open
+        for window in NSApp.windows where window.title == "Settings" {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let view = SettingsView(
+            config: appState.config,
+            appState: appState,
+            onModelChange: { [weak appState] in appState?.modelDidChange() }
+        )
+        let controller = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: controller)
+        window.title = "Settings"
+        window.setContentSize(NSSize(width: 420, height: 440))
+        window.styleMask = [.titled, .closable]
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 
     private func showFloatingCircle() {
         let size: CGFloat = 56
