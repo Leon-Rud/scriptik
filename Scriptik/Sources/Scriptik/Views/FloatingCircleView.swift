@@ -7,6 +7,7 @@ struct FloatingCircleView: View {
     var appState: AppState
     @State private var pulseScale: CGFloat = 1.0
     @State private var iconPulse: Bool = false
+    @State private var isHovered: Bool = false
 
     var body: some View {
         ZStack {
@@ -27,9 +28,9 @@ struct FloatingCircleView: View {
 
             Circle()
                 .fill(.ultraThinMaterial)
-                .overlay(Circle().fill(bgColor.opacity(0.6)))
-                .shadow(color: appState.recorder.isRecording ? .red.opacity(0.5) : .black.opacity(0.4),
-                        radius: appState.recorder.isRecording ? 6 : 4, x: 0, y: 2)
+                .overlay(Circle().fill(bgColor.opacity(isHovered ? 0.8 : 0.6)))
+                .shadow(color: appState.recorder.isRecording ? .red.opacity(0.5) : .black.opacity(isHovered ? 0.6 : 0.4),
+                        radius: appState.recorder.isRecording ? 6 : (isHovered ? 6 : 4), x: 0, y: 2)
                 .frame(width: 32, height: 32)
 
             centerContent
@@ -38,25 +39,16 @@ struct FloatingCircleView: View {
         }
         .frame(width: 40, height: 40)
         .contentShape(Circle())
+        .scaleEffect(isHovered ? 1.12 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isHovered)
         .animation(.easeInOut(duration: 0.3), value: showCopied)
+        .onHover { isHovered = $0 }
         .onTapGesture { appState.toggle() }
         .overlay(alignment: .topTrailing) {
             if appState.recorder.isRecording {
-                Button {
-                    appState.cancelRecording()
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color(white: 0.15))
-                            .frame(width: 14, height: 14)
-                        Image(systemName: "xmark")
-                            .font(.system(size: 7, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                }
-                .buttonStyle(.plain)
-                .offset(x: 2, y: -2)
-                .transition(.scale.combined(with: .opacity))
+                CancelButton { appState.cancelRecording() }
+                    .offset(x: 2, y: -2)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
         .animation(.easeInOut(duration: 0.2), value: appState.recorder.isRecording)
@@ -116,5 +108,27 @@ struct FloatingCircleView: View {
 
     private func formatTime(_ t: TimeInterval) -> String {
         String(format: "%d:%02d", Int(t) / 60, Int(t) % 60)
+    }
+}
+
+private struct CancelButton: View {
+    var action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(isHovered ? Color.red : Color(white: 0.15))
+                    .frame(width: 14, height: 14)
+                Image(systemName: "xmark")
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(isHovered ? 1.2 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onHover { isHovered = $0 }
     }
 }
