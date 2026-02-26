@@ -18,7 +18,13 @@
 
 ---
 
-Press a shortcut or a keyboard shortcut to **start recording**. Press again to **stop, transcribe, and paste** - all running 100% locally on your Mac.
+## Why I Built This
+
+I get stressed in technical interviews — I rush answers, skip important points, and only realize afterward that I knew the solution.
+
+So I built a tool that records me, transcribes everything locally with timestamps, and flags every pause. The first time I saw `[pause 4.2s]` where I thought I'd paused for one second, it changed how I prepared.
+
+Scriptik started as a personal interview prep tool and grew into a general-purpose voice-to-text app. It runs 100% locally — no audio ever leaves your machine.
 
 <p align="center">
   <img src="demo.gif" alt="Scriptik demo" width="600">
@@ -30,6 +36,7 @@ Press a shortcut or a keyboard shortcut to **start recording**. Press again to *
 - **Global hotkey** — toggle recording from any app
 - **100% local** — no audio leaves your machine, ever
 - **Persistent Whisper server** — model stays loaded in memory, no cold start
+- **Timestamps & pause detection** — see exactly when you paused and for how long
 - **Live waveform** — floating circle shows waveform while recording, progress ring while transcribing
 - **mlx-whisper acceleration** — 5-10x faster on Apple Silicon
 - **Auto-paste** — transcription is copied to clipboard and pasted into the previously active app
@@ -72,6 +79,59 @@ Then launch **Scriptik** from Applications or Spotlight.
 
 **Right-click the circle** for Settings, History, and Quit.
 
+## Using the Output
+
+Scriptik gives you a timestamped transcript like this:
+
+```
+  [0.0s --> 2.3s] So the way I'd approach this system design problem...
+  [2.3s --> 4.1s] is to start with the requirements.
+  [pause 3.8s]
+  [7.9s --> 12.1s] We need to handle about ten thousand requests per second...
+```
+
+The real power is feeding this to an LLM for feedback. Here's a sample prompt:
+
+> I'm practicing for a technical interview. Here's the transcript with timestamps and pause markers. The job description is [paste JD]. My background is [paste CV/resume].
+>
+> Analyze my responses: Where did I hesitate too long? Where was I unclear? What technical points did I miss? Give me specific, honest feedback and suggest how I could improve each answer.
+
+This workflow — record, transcribe, analyze — is what makes pause detection and timestamps actually useful. You can see exactly where you struggled, not just what you said.
+
+## Whisper Tips That Matter
+
+These settings are baked into Scriptik, but worth understanding if you're working with Whisper yourself:
+
+**`condition_on_previous_text=False`** — By default, Whisper uses its own previous output as context for the next chunk. This causes hallucination cascading: one bad transcription snowballs into gibberish. Turning this off makes each segment independent and dramatically more reliable.
+
+**`no_speech_threshold=0.05`** — The default (0.6) aggressively skips segments it thinks are silence, which often cuts real speech. Lowering it to 0.05 means Whisper transcribes almost everything and lets the pause detection logic handle silence properly.
+
+**`initial_prompt`** — Feed Whisper domain-specific words it might mishear. If you're interviewing for a backend role, set it to something like `"Docker, Kubernetes, PostgreSQL, FastAPI, Redis"`. Whisper uses this as a spelling/context hint and gets technical terms right far more often.
+
+## Configuration
+
+Edit `~/.config/scriptik/config` (shared between app and CLI):
+
+```bash
+WHISPER_MODEL="medium"       # tiny, base, small, medium, large
+PAUSE_THRESHOLD="1.5"        # Seconds of silence before [pause]
+INITIAL_PROMPT="Docker, FastAPI, PostgreSQL, React"  # Hint words
+AUTO_PASTE="true"            # Auto-paste into active app
+LANGUAGE="auto"              # auto, en, he, ...
+```
+
+### Model Comparison
+
+Speed estimates for ~10s recording on Apple Silicon (persistent server, no cold start):
+
+| Model    | Size  | Speed | Accuracy  |
+| -------- | ----- | ----- | --------- |
+| `tiny`   | 75MB  | ~0.5s | Basic     |
+| `base`   | 140MB | ~1s   | Good      |
+| `small`  | 500MB | ~2s   | Great     |
+| `medium` | 1.5GB | ~4s   | Excellent |
+| `large`  | 3GB   | ~8s   | Best      |
+
 <details>
 <summary><strong>CLI-only alternative</strong></summary>
 
@@ -95,30 +155,6 @@ scriptik-cli --help     # Show help
 
 </details>
 
-## Configuration
-
-Edit `~/.config/scriptik/config` (shared between app and CLI):
-
-```bash
-WHISPER_MODEL="medium"       # tiny, base, small, medium, large
-PAUSE_THRESHOLD="1.5"        # Seconds of silence before [pause]
-INITIAL_PROMPT="Docker, FastAPI, PostgreSQL, React"  # Hint words
-AUTO_PASTE="true"            # Auto-paste into active app
-LANGUAGE="auto"              # auto, en, he, ...
-```
-
-### Model Comparison
-
-Speed estimates for ~10s recording on Apple Silicon (persistent server, no cold start):
-
-| Model | Size | Speed | Accuracy |
-|-------|------|-------|----------|
-| `tiny` | 75MB | ~0.5s | Basic |
-| `base` | 140MB | ~1s | Good |
-| `small` | 500MB | ~2s | Great |
-| `medium` | 1.5GB | ~4s | Excellent |
-| `large` | 3GB | ~8s | Best |
-
 ## Building from Source
 
 ```bash
@@ -132,12 +168,12 @@ The app bundle is output to `Scriptik/build/Scriptik.app`.
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| Microphone not working | **System Settings > Privacy & Security > Microphone** — enable Scriptik |
-| Auto-paste not working | **System Settings > Privacy & Security > Accessibility** — enable Scriptik |
-| Empty/wrong transcription | Try a larger model in Settings, add context words to initial prompt |
-| Global shortcut not working | Open Settings and re-set your preferred key combination |
+| Problem                     | Solution                                                                   |
+| --------------------------- | -------------------------------------------------------------------------- |
+| Microphone not working      | **System Settings > Privacy & Security > Microphone** — enable Scriptik    |
+| Auto-paste not working      | **System Settings > Privacy & Security > Accessibility** — enable Scriptik |
+| Empty/wrong transcription   | Try a larger model in Settings, add context words to initial prompt        |
+| Global shortcut not working | Open Settings and re-set your preferred key combination                    |
 
 ## Contributing
 
@@ -150,8 +186,6 @@ Contributions are welcome! Whether it's bug fixes, new features, or documentatio
 5. Open a Pull Request
 
 AI-assisted contributions are welcome, as long as they are well-tested and reviewed.
-
-Please be respectful and constructive in all interactions.
 
 ## Uninstall
 
@@ -168,3 +202,7 @@ Removes the CLI script, Quick Action, config, and Whisper environment. To remove
 ## Author
 
 **Leon Rudnitsky** — [@Leon-Rud](https://github.com/Leon-Rud)
+
+---
+
+*Knowing the answer and saying it out loud aren't the same thing.*
