@@ -65,13 +65,12 @@ cp "$PROJECT_DIR/Sources/Scriptik/Resources/Info.plist" "$STAGE_BUNDLE/Contents/
 xattr -cr "$STAGE_BUNDLE" 2>/dev/null || true
 find "$STAGE_BUNDLE" -exec xattr -c {} \; 2>/dev/null || true
 
+# Clean __pycache__ from resource bundles
+find "$STAGE_BUNDLE" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
 # Codesign with stable identity (preserves Accessibility permission across rebuilds)
 # Falls back to ad-hoc if "Scriptik Dev" identity not found
-# Try Scriptik Dev, fall back to RecordToggle Dev (legacy name), then ad-hoc
 SIGN_IDENTITY="Scriptik Dev"
-if ! security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY"; then
-    SIGN_IDENTITY="RecordToggle Dev"
-fi
 if ! security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY"; then
     SIGN_IDENTITY="-"
 fi

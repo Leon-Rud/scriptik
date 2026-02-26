@@ -25,7 +25,7 @@ struct SettingsView: View {
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 420, height: 340)
+        .frame(width: 420, height: 440)
         .onDisappear { config.save() }
     }
 }
@@ -261,7 +261,7 @@ private struct AboutTab: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("v1.0.0")
+            Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
                 .foregroundStyle(.secondary)
 
             Text("Global audio recording with local Whisper transcription.")

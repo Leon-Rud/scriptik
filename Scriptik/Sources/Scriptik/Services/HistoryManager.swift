@@ -115,8 +115,9 @@ final class HistoryManager {
 
             // Extract text after the closing bracket of the timestamp
             // Format: [0.0s --> 2.3s] actual text
-            if let closingBracket = trimmed.range(of: "] ", options: [],
-                range: trimmed.range(of: "-->")!.upperBound..<trimmed.endIndex) {
+            if let arrowRange = trimmed.range(of: "-->"),
+               let closingBracket = trimmed.range(of: "] ", options: [],
+                range: arrowRange.upperBound..<trimmed.endIndex) {
                 let text = String(trimmed[closingBracket.upperBound...])
                     .trimmingCharacters(in: .whitespaces)
                 if text.isEmpty { continue }

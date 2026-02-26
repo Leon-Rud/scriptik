@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 import KeyboardShortcuts
 
@@ -39,6 +40,21 @@ final class AppState {
     init() {
         setupKeyboardShortcut()
         transcriptionServer.start(config: config)
+        requestPermissionsOnFirstLaunch()
+    }
+
+    /// Prompt for microphone and accessibility permissions on first launch
+    /// so the user grants them before their first recording.
+    private func requestPermissionsOnFirstLaunch() {
+        // Microphone: triggers the system dialog if not yet determined
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            NSLog("Scriptik: microphone permission \(granted ? "granted" : "denied")")
+        }
+
+        // Accessibility: triggers the system dialog if not yet granted
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        let trusted = AXIsProcessTrustedWithOptions(options)
+        NSLog("Scriptik: accessibility trusted = \(trusted)")
     }
 
     private func setupKeyboardShortcut() {
@@ -206,10 +222,14 @@ final class AppState {
             return
         }
 
-        if !AXIsProcessTrusted() && !hasShownAccessibilityHint {
+        // Accessibility permission is required to post keyboard events to other apps.
+        // AXIsProcessTrustedWithOptions with kAXTrustedCheckOptionPrompt shows the
+        // native system dialog asking the user to grant access.
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): !hasShownAccessibilityHint] as CFDictionary
+        if !AXIsProcessTrustedWithOptions(options) {
             hasShownAccessibilityHint = true
-            NSLog("Scriptik: Accessibility not granted — opening System Settings")
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+            NSLog("Scriptik: auto-paste skipped — accessibility not granted")
+            return
         }
 
         let pid = app.processIdentifier
