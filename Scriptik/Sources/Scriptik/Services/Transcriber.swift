@@ -30,11 +30,11 @@ final class Transcriber {
 
     // MARK: - Transcribe
 
-    func transcribe(config: ConfigManager) async throws -> String {
+    func transcribe(config: ConfigManager, server: TranscriptionServer? = nil) async throws -> String {
         isTranscribing = true
 
         do {
-            let result = try await runTranscription(config: config)
+            let result = try await runTranscription(config: config, server: server)
             lastResult = result
             isTranscribing = false
             return result
@@ -44,10 +44,51 @@ final class Transcriber {
         }
     }
 
+    // MARK: - Estimation
+
+    /// Speed factors: estimated transcription time as a fraction of recording duration.
+    private static let speedFactors: [String: Double] = [
+        "tiny": 0.15,
+        "base": 0.25,
+        "small": 0.5,
+        "medium": 0.8,
+        "large": 1.5,
+    ]
+
+    /// Returns estimated transcription duration in seconds.
+    static func estimatedDuration(recordingDuration: TimeInterval, model: String) -> TimeInterval {
+        let factor = speedFactors[model] ?? 0.8
+        return max(2.0, recordingDuration * factor)
+    }
+
     // MARK: - Private
 
-    private func runTranscription(config: ConfigManager) async throws -> String {
-        // Locate transcribe.py script
+    private func runTranscription(config: ConfigManager, server: TranscriptionServer? = nil) async throws -> String {
+        // Try the persistent server first
+        if let server, server.state == .ready || server.state == .starting {
+            do {
+                let recordingPath = ConfigManager.recordingFile.path
+                let transcriptionPath = ConfigManager.transcriptionFile.path
+
+                // Remove any stale transcription output
+                try? FileManager.default.removeItem(atPath: transcriptionPath)
+
+                let result = try await server.transcribe(
+                    recordingPath: recordingPath,
+                    transcriptionPath: transcriptionPath,
+                    pauseThreshold: config.pauseThreshold,
+                    model: config.whisperModel,
+                    initialPrompt: config.initialPrompt,
+                    language: config.language
+                )
+                return result
+            } catch {
+                NSLog("Scriptik: server transcription failed, falling back to one-shot: %@", error.localizedDescription)
+                // Fall through to one-shot
+            }
+        }
+
+        // One-shot fallback: locate transcribe.py script
         let scriptPath = try findScript()
 
         // Verify Python environment exists

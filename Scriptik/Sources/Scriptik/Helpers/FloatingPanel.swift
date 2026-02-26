@@ -27,7 +27,13 @@ class FloatingPanel: NSPanel {
     func show<Content: View>(@ViewBuilder content: () -> Content) {
         let hostingView = NSHostingView(rootView: content())
         hostingView.frame = contentRect(forFrameRect: frame)
+        // Allow SwiftUI animations (e.g. pulse rings) to draw outside the view bounds
+        hostingView.wantsLayer = true
+        hostingView.layer?.masksToBounds = false
         contentView = hostingView
+        // Also ensure the window's content view doesn't clip
+        self.contentView?.wantsLayer = true
+        self.contentView?.layer?.masksToBounds = false
         orderFrontRegardless()
     }
 }

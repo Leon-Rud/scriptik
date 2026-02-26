@@ -87,7 +87,7 @@ struct MainView: View {
     private var statusColor: Color {
         switch appState.statusText {
         case "Recording...": return .red
-        case "Transcribing...": return .orange
+        case "Transcribing...": return .indigo
         case "Done", "Copied": return .green
         case "Error", "Mic error": return .red
         default: return .secondary
@@ -156,13 +156,32 @@ struct MainView: View {
     // MARK: - Transcribing
 
     private var transcribingIndicator: some View {
-        HStack(spacing: 8) {
-            ProgressView()
-                .controlSize(.small)
-            Text("Transcribing...")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        VStack(spacing: 8) {
+            ProgressView(value: appState.transcriptionProgress)
+                .progressViewStyle(.linear)
+                .tint(.indigo)
+
+            HStack {
+                Text(formatDuration(appState.transcriptionElapsed) + " elapsed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                let remaining = appState.estimatedTimeRemaining
+                if remaining > 0 {
+                    Text("~" + formatDuration(remaining) + " remaining")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
+    }
+
+    private func formatDuration(_ t: TimeInterval) -> String {
+        let seconds = Int(t)
+        if seconds < 60 {
+            return "\(seconds)s"
+        }
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     // MARK: - Result Card

@@ -40,9 +40,9 @@ struct MenuBarView: View {
 
     private func openSettings() {
         openWindow(
-            view: SettingsView(config: appState.config),
+            view: SettingsView(config: appState.config, onModelChange: { [weak appState] in appState?.modelDidChange() }),
             title: "Settings",
-            size: NSSize(width: 420, height: 300),
+            size: NSSize(width: 420, height: 340),
             resizable: false
         )
     }
