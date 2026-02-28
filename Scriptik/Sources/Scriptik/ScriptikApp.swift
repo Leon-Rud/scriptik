@@ -22,19 +22,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
     private var circlePanel: FloatingPanel?
     private var positionSaveTask: Task<Void, Never>?
+    private var circleVisibilityObserver: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Show the persistent floating circle button
-        showFloatingCircle()
+        // Show the persistent floating circle button if enabled
+        if appState.config.showFloatingCircle {
+            showFloatingCircle()
+        }
 
-        // Auto-open Settings on Permissions tab if any permission is missing
-        let micOK = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
-        let accessOK = AXIsProcessTrusted()
-        if !micOK || !accessOK {
-            // Small delay so the menu bar icon registers first
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
-                openSettingsWindow()
-            }
+        // Observe changes to the setting
+        observeCircleVisibility()
+
+        // Always open Settings on launch so users see the app is running
+        // (menu bar apps have no main window, so this prevents confusion)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
+            openSettingsWindow()
         }
     }
 
@@ -135,6 +137,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.appState.config.circlePositionX = Double(frame.origin.x)
             self.appState.config.circlePositionY = Double(frame.origin.y)
             self.appState.config.save()
+        }
+    }
+
+    private func observeCircleVisibility() {
+        circleVisibilityObserver = Task { @MainActor [weak self] in
+            var wasVisible = self?.appState.config.showFloatingCircle ?? true
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(200))
+                guard let self else { return }
+                let isVisible = self.appState.config.showFloatingCircle
+                if isVisible != wasVisible {
+                    wasVisible = isVisible
+                    if isVisible {
+                        self.showFloatingCircle()
+                    } else {
+                        self.circlePanel?.close()
+                        self.circlePanel = nil
+                    }
+                }
+            }
         }
     }
 

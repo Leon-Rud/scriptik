@@ -24,6 +24,10 @@ struct MenuBarView: View {
             Button("Start Recording") { appState.toggle() }
         }
 
+        if appState.displayResult != nil {
+            Button("Copy Last Result") { appState.copyLastResult() }
+        }
+
         Divider()
 
         Button("Settings…") { openSettings() }
