@@ -333,6 +333,7 @@ final class AppState {
     private enum SoundEvent { case begin, end, cancel }
 
     private func playSound(_ event: SoundEvent) {
+        guard config.enableSoundFeedback else { return }
         let soundName: String
         switch event {
         case .begin:  soundName = "Ping"

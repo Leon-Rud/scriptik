@@ -37,11 +37,12 @@ Scriptik started as a personal interview prep tool and grew into a general-purpo
 - **100% local** - no audio leaves your machine, ever
 - **Persistent Whisper server** - model stays loaded in memory, no cold start
 - **Timestamps & pause detection** - see exactly when you paused and for how long
-- **Live waveform** - floating circle shows waveform while recording, progress ring while transcribing
+- **Live waveform** - floating circle shows waveform while recording, wave bars while transcribing
 - **mlx-whisper acceleration** - 5-10x faster on Apple Silicon
 - **Auto-paste** - transcription is copied to clipboard and pasted into the previously active app
 - **Multi-language** - auto-detects English, Hebrew, and more
 - **Transcription history** - searchable history of past transcriptions
+- **Sound feedback** - optional audio cues for recording start, stop, and cancel
 - **Configurable** - model, language, prompts, pause thresholds, and more
 
 ## Getting Started
@@ -71,7 +72,7 @@ Then launch **Scriptik** from Applications or Spotlight.
 
 ## Usage
 
-1. Launch **Scriptik** from /Applications or Spotlight
+1. Launch **Scriptik** from /Applications or Spotlight - Settings opens automatically
 2. A floating circle appears - click it or press your global shortcut to start recording
 3. The circle shows a live waveform and elapsed time while recording
 4. Click again or press the shortcut to stop
@@ -118,6 +119,8 @@ PAUSE_THRESHOLD="1.5"        # Seconds of silence before [pause]
 INITIAL_PROMPT="Docker, FastAPI, PostgreSQL, React"  # Hint words
 AUTO_PASTE="true"            # Auto-paste into active app
 LANGUAGE="auto"              # auto, en, he, ...
+SHOW_FLOATING_CIRCLE="true"  # Show/hide floating circle button
+ENABLE_SOUND_FEEDBACK="true" # Audio cues for recording events
 ```
 
 ### Model Comparison

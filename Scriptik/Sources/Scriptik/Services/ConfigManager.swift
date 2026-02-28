@@ -14,6 +14,8 @@ final class ConfigManager {
     var includeTimestamps = false
     var language = "auto"
     var whisperVenv: String
+    var showFloatingCircle = true
+    var enableSoundFeedback = true
     var circlePositionX: Double = -1
     var circlePositionY: Double = -1
     var launchAtLogin: Bool = false {
@@ -92,6 +94,10 @@ final class ConfigManager {
                 language = value
             case "WHISPER_VENV":
                 if !value.isEmpty { whisperVenv = value }
+            case "SHOW_FLOATING_CIRCLE":
+                showFloatingCircle = (value.lowercased() != "false" && value != "0")
+            case "ENABLE_SOUND_FEEDBACK":
+                enableSoundFeedback = (value.lowercased() != "false" && value != "0")
             case "CIRCLE_POSITION_X":
                 if let d = Double(value) { circlePositionX = d }
             case "CIRCLE_POSITION_Y":
@@ -123,6 +129,8 @@ final class ConfigManager {
         lines.append("INCLUDE_TIMESTAMPS=\"\(includeTimestamps)\"")
         lines.append("LANGUAGE=\"\(language)\"")
         lines.append("WHISPER_VENV=\"\(whisperVenv)\"")
+        lines.append("SHOW_FLOATING_CIRCLE=\"\(showFloatingCircle)\"")
+        lines.append("ENABLE_SOUND_FEEDBACK=\"\(enableSoundFeedback)\"")
         lines.append("CIRCLE_POSITION_X=\"\(circlePositionX)\"")
         lines.append("CIRCLE_POSITION_Y=\"\(circlePositionY)\"")
         lines.append("")

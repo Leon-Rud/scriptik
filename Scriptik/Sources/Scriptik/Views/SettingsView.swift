@@ -68,9 +68,13 @@ private struct GeneralTab: View {
                 }
             }
 
+            Toggle("Show floating circle button", isOn: $config.showFloatingCircle)
+
             Toggle("Auto-paste after transcription", isOn: $config.autoPaste)
 
             Toggle("Include timestamps in output", isOn: $config.includeTimestamps)
+
+            Toggle("Play sound feedback", isOn: $config.enableSoundFeedback)
 
             TextField("Initial prompt (hint words)", text: $config.initialPrompt, axis: .vertical)
                 .lineLimit(2...4)

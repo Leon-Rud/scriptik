@@ -7,7 +7,6 @@ struct FloatingCircleView: View {
     var appState: AppState
     @State private var pulseScale: CGFloat = 1.0
     @State private var pulseScale2: CGFloat = 1.0
-    @State private var isBreathing: Bool = false
     @State private var isHovered: Bool = false
 
     // Circle sizes
@@ -43,37 +42,15 @@ struct FloatingCircleView: View {
                     .onDisappear { pulseScale2 = 1.0 }
             }
 
-            // Breathing glow when transcribing
-            if appState.transcriber.isTranscribing {
-                Circle()
-                    .fill(Color.indigo.opacity(0.20))
-                    .frame(width: circleSize + 8, height: circleSize + 8)
-                    .scaleEffect(isBreathing ? 1.3 : 1.0)
-                    .opacity(isBreathing ? 0.0 : 0.40)
-                    .blur(radius: 2)
-                    .animation(
-                        .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                        value: isBreathing
-                    )
-                    .onAppear { isBreathing = true }
-                    .onDisappear { isBreathing = false }
-            }
-
             // Main circle — glass morphism base
             Circle()
                 .fill(.ultraThinMaterial)
                 .overlay(Circle().fill(bgColor.opacity(isHovered ? 0.8 : 0.6)))
                 .shadow(color: shadowColor, radius: shadowRadius, x: 0, y: 2)
                 .frame(width: circleSize, height: circleSize)
-                .scaleEffect(transcribingBreathScale)
-                .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                           value: isBreathing)
 
             centerContent
                 .frame(width: 26, height: 26)
-                .scaleEffect(transcribingBreathScale)
-                .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                           value: isBreathing)
 
             // X cancel button — inside the ZStack so it's not clipped by overlay bounds
             if appState.recorder.isRecording {
@@ -90,16 +67,13 @@ struct FloatingCircleView: View {
         .animation(.easeInOut(duration: 0.2), value: appState.recorder.isRecording)
         .onHover { isHovered = $0 }
         .onTapGesture { appState.toggle() }
+        .help("Click to record \u{2022} Right-click for menu \u{2022} Drag to move")
     }
 
     // MARK: - Derived State
 
     private var showCopied: Bool {
         appState.showCopiedFeedback && !appState.recorder.isRecording && !appState.transcriber.isTranscribing
-    }
-
-    private var transcribingBreathScale: CGFloat {
-        appState.transcriber.isTranscribing && isBreathing ? 1.04 : 1.0
     }
 
     private var shadowColor: Color {
@@ -124,18 +98,17 @@ struct FloatingCircleView: View {
                 .foregroundStyle(.white)
                 .transition(.scale.combined(with: .opacity))
         } else if appState.transcriber.isTranscribing {
-            // Progress ring only
-            ZStack {
-                // Background track
-                Circle()
-                    .stroke(Color.white.opacity(0.15), lineWidth: 2.5)
-
-                // Progress fill
-                Circle()
-                    .trim(from: 0, to: appState.transcriptionProgress)
-                    .stroke(Color.white.opacity(0.6), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 0.1), value: appState.transcriptionProgress)
+            // Wave bars animation
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                HStack(spacing: 1.0) {
+                    ForEach(0..<5, id: \.self) { i in
+                        let t = timeline.date.timeIntervalSinceReferenceDate
+                        let h = 0.4 + 0.6 * abs(sin(t * 4 + Double(i) * 0.7))
+                        RoundedRectangle(cornerRadius: 1.0)
+                            .fill(Color.white.opacity(0.4 + 0.6 * h))
+                            .frame(width: 2.0, height: circleSize * 0.5 * h)
+                    }
+                }
             }
         } else if appState.recorder.isRecording {
             VStack(spacing: 1) {
