@@ -11,6 +11,21 @@ BINARY_NAME="Scriptik"
 
 echo "Building $APP_NAME..."
 
+# Check for full Xcode (SPM with SwiftUI/AppKit requires the SDK, not just Command Line Tools)
+if ! xcrun --show-sdk-platform-path &>/dev/null; then
+    echo ""
+    echo "ERROR: Building Scriptik requires the full Xcode app (not just Command Line Tools)."
+    echo "The app uses SwiftUI and AppKit which are only available in the Xcode SDK."
+    echo ""
+    echo "You have two options:"
+    echo "  1. Download a pre-built release (no Xcode needed):"
+    echo "     https://github.com/Leon-Rud/scriptik/releases/latest"
+    echo ""
+    echo "  2. Install Xcode from the App Store, then re-run this script."
+    echo ""
+    exit 1
+fi
+
 # Use Homebrew Swift if available, otherwise default
 if [ -x /opt/homebrew/opt/swift/bin/swift ]; then
     SWIFT=/opt/homebrew/opt/swift/bin/swift
