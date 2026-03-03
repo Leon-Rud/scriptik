@@ -55,20 +55,35 @@ Scriptik started as a personal interview prep tool and grew into a general-purpo
 
 ### Install
 
+1. Download `Scriptik.app.zip` from the [latest release](https://github.com/Leon-Rud/scriptik/releases/latest)
+2. Unzip and move `Scriptik.app` to `/Applications/`
+3. Set up the Whisper transcription server:
+
 ```bash
 git clone https://github.com/Leon-Rud/scriptik.git
 cd scriptik
-
-# Set up Whisper (Python venv + model download)
 ./scriptik-cli --setup
-
-# Build and install the native app
-make install
 ```
 
 Then launch **Scriptik** from Applications or Spotlight.
 
 > **Permissions:** On first launch, Scriptik opens a setup screen that walks you through granting Microphone and Accessibility permissions. Once both are granted, the full settings unlock automatically.
+
+<details>
+<summary><strong>Build from source (requires Xcode)</strong></summary>
+
+If you want to build the native app yourself instead of downloading the release:
+
+```bash
+git clone https://github.com/Leon-Rud/scriptik.git
+cd scriptik
+./scriptik-cli --setup
+make install
+```
+
+This requires the full Xcode app (not just Command Line Tools) since the app uses SwiftUI and other macOS SDK frameworks.
+
+</details>
 
 ## Usage
 
@@ -159,6 +174,8 @@ scriptik-cli --help     # Show help
 </details>
 
 ## Building from Source
+
+> **Requires Xcode** (not just Command Line Tools) - the app uses SwiftUI, AppKit, and other macOS SDK frameworks that are only available in the full Xcode installation.
 
 ```bash
 cd Scriptik
