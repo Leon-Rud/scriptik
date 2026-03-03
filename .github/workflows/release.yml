@@ -10,11 +10,16 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
       - name: Build app bundle
+        env:
+          SWIFT: swift
         run: cd Scriptik && bash scripts/bundle.sh
 
       - name: Create zip

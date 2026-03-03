@@ -26,8 +26,10 @@ if ! xcrun --show-sdk-platform-path &>/dev/null; then
     exit 1
 fi
 
-# Use Homebrew Swift if available, otherwise default
-if [ -x /opt/homebrew/opt/swift/bin/swift ]; then
+# Use SWIFT env var if set, Homebrew Swift if available, otherwise default
+if [ -n "${SWIFT:-}" ]; then
+    : # already set
+elif [ -x /opt/homebrew/opt/swift/bin/swift ]; then
     SWIFT=/opt/homebrew/opt/swift/bin/swift
 else
     SWIFT=swift
