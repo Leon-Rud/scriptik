@@ -35,11 +35,11 @@ else
     SWIFT=swift
 fi
 
-# Build release binary
+# Build release binary (SWIFT_BUILD_FLAGS allows CI to pass extra flags)
 cd "$PROJECT_DIR"
-"$SWIFT" build -c release --disable-sandbox 2>&1
+"$SWIFT" build -c release --disable-sandbox ${SWIFT_BUILD_FLAGS:-} 2>&1
 
-BUILT_BINARY="$("$SWIFT" build -c release --disable-sandbox --show-bin-path)/$BINARY_NAME"
+BUILT_BINARY="$("$SWIFT" build -c release --disable-sandbox ${SWIFT_BUILD_FLAGS:-} --show-bin-path)/$BINARY_NAME"
 
 if [ ! -f "$BUILT_BINARY" ]; then
     echo "ERROR: Build failed - binary not found"

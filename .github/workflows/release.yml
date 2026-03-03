@@ -20,6 +20,7 @@ jobs:
       - name: Build app bundle
         env:
           SWIFT: swift
+          SWIFT_BUILD_FLAGS: -Xswiftc -strict-concurrency=minimal
         run: cd Scriptik && bash scripts/bundle.sh
 
       - name: Create zip

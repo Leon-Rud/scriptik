@@ -5,7 +5,6 @@ import PackageDescription
 let package = Package(
     name: "Scriptik",
     platforms: [.macOS(.v14)],
-    swiftLanguageVersions: [.v5],
     dependencies: [
         .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", exact: "1.10.0"),
     ],
