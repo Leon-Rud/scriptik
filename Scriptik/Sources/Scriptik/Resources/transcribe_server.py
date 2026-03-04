@@ -163,10 +163,10 @@ def do_transcribe(request):
             gap = segment["start"] - prev_end
             if gap >= pause_threshold and prev_end > 0:
                 output_lines.append(
-                    f'  [{prev_end:.1f}s --> {segment["start"]:.1f}s] [pause {gap:.1f}s]'
+                    f'[{prev_end:.1f}s --> {segment["start"]:.1f}s] [pause {gap:.1f}s]'
                 )
             output_lines.append(
-                f'  [{segment["start"]:.1f}s --> {segment["end"]:.1f}s] {segment["text"].strip()}'
+                f'[{segment["start"]:.1f}s --> {segment["end"]:.1f}s]  {segment["text"].strip()}'
             )
             prev_end = segment["end"]
             continue
@@ -175,13 +175,13 @@ def do_transcribe(request):
             gap = word_info["start"] - prev_end
             if gap >= pause_threshold and prev_end > 0:
                 output_lines.append(
-                    f'  [{prev_end:.1f}s --> {word_info["start"]:.1f}s] [pause {gap:.1f}s]'
+                    f'[{prev_end:.1f}s --> {word_info["start"]:.1f}s] [pause {gap:.1f}s]'
                 )
             prev_end = word_info["end"]
 
         text = segment["text"].strip()
         output_lines.append(
-            f'  [{segment["start"]:.1f}s --> {segment["end"]:.1f}s] {text}'
+            f'[{segment["start"]:.1f}s --> {segment["end"]:.1f}s]  {text}'
         )
         prev_end = segment["end"]
 
@@ -197,7 +197,9 @@ def do_transcribe(request):
             filtered.append(line)
             prev_text = text
 
-    output = "\n".join(filtered)
+    # Wrap each line in LTR Isolate (U+2066...U+2069) so BiDi keeps timestamps on the left
+    # for RTL languages. Stronger than LTR marks — works across all apps including Cursor.
+    output = "\n".join(f'\u2066{line}\u2069' for line in filtered)
     with open(transcription_path, "w", encoding="utf-8") as f:
         f.write(output)
 
