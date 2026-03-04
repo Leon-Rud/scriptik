@@ -94,10 +94,10 @@ for segment in result["segments"]:
         gap = segment["start"] - prev_end
         if gap >= pause_threshold and prev_end > 0:
             output_lines.append(
-                f'  [{prev_end:.1f}s --> {segment["start"]:.1f}s] [pause {gap:.1f}s]'
+                f'[{prev_end:.1f}s --> {segment["start"]:.1f}s] [pause {gap:.1f}s]'
             )
         output_lines.append(
-            f'  [{segment["start"]:.1f}s --> {segment["end"]:.1f}s] {segment["text"].strip()}'
+            f'[{segment["start"]:.1f}s --> {segment["end"]:.1f}s]  {segment["text"].strip()}'
         )
         prev_end = segment["end"]
         continue
@@ -106,13 +106,13 @@ for segment in result["segments"]:
         gap = word_info["start"] - prev_end
         if gap >= pause_threshold and prev_end > 0:
             output_lines.append(
-                f'  [{prev_end:.1f}s --> {word_info["start"]:.1f}s] [pause {gap:.1f}s]'
+                f'[{prev_end:.1f}s --> {word_info["start"]:.1f}s] [pause {gap:.1f}s]'
             )
         prev_end = word_info["end"]
 
     text = segment["text"].strip()
     output_lines.append(
-        f'  [{segment["start"]:.1f}s --> {segment["end"]:.1f}s] {text}'
+        f'[{segment["start"]:.1f}s --> {segment["end"]:.1f}s]  {text}'
     )
     prev_end = segment["end"]
 
@@ -128,6 +128,7 @@ for line in output_lines:
         filtered.append(line)
         prev_text = text
 
-output = "\n".join(filtered)
+# Prepend LTR mark (U+200E) so BiDi keeps timestamps on the left for RTL languages
+output = "\n".join(f'\u200e{line}' for line in filtered)
 with open(transcription_file, "w", encoding="utf-8") as f:
     f.write(output)
