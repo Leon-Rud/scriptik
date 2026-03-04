@@ -128,8 +128,7 @@ for line in output_lines:
         filtered.append(line)
         prev_text = text
 
-# Wrap each line in LTR Isolate (U+2066...U+2069) so BiDi keeps timestamps on the left
-# for RTL languages. Stronger than LTR marks — works across all apps including Cursor.
-output = "\n".join(f'\u2066{line}\u2069' for line in filtered)
+# Prepend LTR mark (U+200E) so BiDi keeps timestamps on the left for RTL languages
+output = "\n".join(f'\u200e{line}' for line in filtered)
 with open(transcription_file, "w", encoding="utf-8") as f:
     f.write(output)
