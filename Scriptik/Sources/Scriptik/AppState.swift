@@ -147,10 +147,8 @@ final class AppState {
                 // Strip timestamps if user doesn't want them
                 let clipboardText = config.includeTimestamps ? result : stripTimestamps(result)
 
-                // Copy to clipboard (plain text + HTML for broad app compatibility)
                 writeToClipboard(clipboardText)
 
-                // Auto-paste
                 if config.autoPaste {
                     try? await Task.sleep(for: .milliseconds(300))
                     await pasteIntoPreviousApp()
@@ -367,23 +365,10 @@ final class AppState {
         }
     }
 
-    /// Writes text to clipboard with both plain-text and HTML representations.
-    /// Plain text (with LTR mark) serves native macOS apps.
-    /// HTML (with dir="ltr") serves Electron/web-based apps like Cursor.
+    /// Writes text to clipboard as plain text.
     private func writeToClipboard(_ text: String) {
-        let htmlBody = text
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-            .replacingOccurrences(of: "\n", with: "<br>")
-        let html = "<div dir=\"ltr\" style=\"white-space: pre-wrap;\">\(htmlBody)</div>"
-
         NSPasteboard.general.clearContents()
-        let item = NSPasteboardItem()
-        item.setString(text, forType: .string)
-        item.setString(html, forType: .html)
-        NSPasteboard.general.writeObjects([item])
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     /// Strips timestamp prefixes like "  [0.0s --> 2.3s] " and pause markers, returning plain text

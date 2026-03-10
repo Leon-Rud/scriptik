@@ -197,8 +197,7 @@ def do_transcribe(request):
             filtered.append(line)
             prev_text = text
 
-    # Prepend LTR mark (U+200E) so BiDi keeps timestamps on the left for RTL languages
-    output = "\n".join(f'\u200e{line}' for line in filtered)
+    output = "\n".join(filtered)
     with open(transcription_path, "w", encoding="utf-8") as f:
         f.write(output)
 
