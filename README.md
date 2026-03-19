@@ -5,15 +5,17 @@
 <h1 align="center">Scriptik</h1>
 
 <p align="center">
-  <b>Voice-to-text for macOS - record, transcribe locally with Whisper, and paste anywhere.<br>
+  <b>Voice-to-text for macOS & Windows - record, transcribe locally with Whisper, and paste anywhere.<br>
   Timestamps, pause detection, and auto-paste. No cloud, no subscription, no data leaves your machine.</b>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/macOS_14+-only-blue" alt="macOS">
+  <img src="https://img.shields.io/badge/macOS_14+-blue" alt="macOS">
+  <img src="https://img.shields.io/badge/Windows_10+-0078D6" alt="Windows">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/whisper-local-blueviolet" alt="Whisper">
   <img src="https://img.shields.io/badge/Apple_Silicon-accelerated-orange" alt="Apple Silicon">
+  <img src="https://img.shields.io/badge/CUDA-supported-76B900" alt="CUDA">
 </p>
 
 ---
@@ -32,13 +34,15 @@ Scriptik started as a personal interview prep tool and grew into a general-purpo
 
 ## Features
 
-- **Menu bar app** - lives in the menu bar with a floating circle indicator
+- **Cross-platform** - native apps for macOS (Swift/SwiftUI) and Windows (C#/WPF)
+- **Menu bar / system tray** - lives in the menu bar (macOS) or system tray (Windows) with a floating circle indicator
 - **Global hotkey** - toggle recording from any app
 - **100% local** - no audio leaves your machine, ever
 - **Persistent Whisper server** - model stays loaded in memory, no cold start
 - **Timestamps & pause detection** - see exactly when you paused and for how long
 - **Live waveform** - floating circle shows waveform while recording, wave bars while transcribing
-- **mlx-whisper acceleration** - 5-10x faster on Apple Silicon
+- **mlx-whisper acceleration** - 5-10x faster on Apple Silicon (macOS)
+- **CUDA acceleration** - GPU-accelerated transcription on NVIDIA GPUs (Windows)
 - **Auto-paste** - transcription is copied to clipboard and pasted into the previously active app
 - **Multi-language** - auto-detects English, Hebrew, and more
 - **Transcription history** - searchable history of past transcriptions
@@ -47,13 +51,15 @@ Scriptik started as a personal interview prep tool and grew into a general-purpo
 
 ## Getting Started
 
-### Requirements
+### macOS
+
+#### Requirements
 
 - **macOS 14+** (Sonoma)
 - **Python 3** (for Whisper)
 - **ffmpeg** (`brew install ffmpeg`)
 
-### Install
+#### Install
 
 1. Download `Scriptik.app.zip` from the [latest release](https://github.com/Leon-Rud/scriptik/releases/latest)
 2. Unzip and move `Scriptik.app` to `/Applications/`
@@ -82,6 +88,54 @@ make install
 ```
 
 This requires the full Xcode app (not just Command Line Tools) since the app uses SwiftUI and other macOS SDK frameworks.
+
+</details>
+
+### Windows
+
+#### Requirements
+
+- **Windows 10+**
+- **Python 3.10+** ([python.org](https://python.org) or `winget install Python.Python.3.11`)
+- **ffmpeg** (`winget install Gyan.FFmpeg`)
+- **.NET 8 SDK** ([dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/8.0))
+
+#### Install
+
+One command sets up everything (Python/Whisper environment + app build):
+
+```bash
+git clone https://github.com/Leon-Rud/scriptik.git
+cd scriptik
+make install-windows
+```
+
+Or step by step:
+
+```powershell
+# 1. Set up Python + Whisper (auto-detects NVIDIA GPU for CUDA)
+cd Scriptik.Windows
+powershell -ExecutionPolicy Bypass -File Scripts/setup.ps1
+
+# 2. Build the app
+dotnet build
+```
+
+Then run `Scriptik.Windows\bin\Debug\net8.0-windows\Scriptik.exe`.
+
+> **First launch:** If the Python environment isn't set up yet, Scriptik will prompt you to run the setup automatically.
+
+<details>
+<summary><strong>Build a standalone .exe</strong></summary>
+
+To create a self-contained single-file executable that doesn't require .NET installed:
+
+```powershell
+cd Scriptik.Windows
+powershell -ExecutionPolicy Bypass -File Scripts/build.ps1
+```
+
+Output: `Scriptik.Windows/publish/Scriptik.exe`
 
 </details>
 
@@ -140,15 +194,15 @@ ENABLE_SOUND_FEEDBACK="true" # Audio cues for recording events
 
 ### Model Comparison
 
-Speed estimates for ~10s recording on Apple Silicon (persistent server, no cold start):
+Speed estimates for ~10s recording (persistent server, no cold start):
 
-| Model    | Size  | Speed | Accuracy  |
-| -------- | ----- | ----- | --------- |
-| `tiny`   | 75MB  | ~0.5s | Basic     |
-| `base`   | 140MB | ~1s   | Good      |
-| `small`  | 500MB | ~2s   | Great     |
-| `medium` | 1.5GB | ~4s   | Excellent |
-| `large`  | 3GB   | ~8s   | Best      |
+| Model    | Size  | Apple Silicon | NVIDIA GPU | CPU only | Accuracy  |
+| -------- | ----- | ------------- | ---------- | -------- | --------- |
+| `tiny`   | 75MB  | ~0.5s         | ~1s        | ~1.5s    | Basic     |
+| `base`   | 140MB | ~1s           | ~2s        | ~3s      | Good      |
+| `small`  | 500MB | ~2s           | ~5s        | ~10s     | Great     |
+| `medium` | 1.5GB | ~4s           | ~10s       | ~25s     | Excellent |
+| `large`  | 3GB   | ~8s           | ~20s       | ~50s     | Best      |
 
 <details>
 <summary><strong>CLI-only alternative</strong></summary>
@@ -175,6 +229,8 @@ scriptik-cli --help     # Show help
 
 ## Building from Source
 
+### macOS
+
 > **Requires Xcode** (not just Command Line Tools) - the app uses SwiftUI, AppKit, and other macOS SDK frameworks that are only available in the full Xcode installation.
 
 ```bash
@@ -193,7 +249,27 @@ The app bundle is output to `Scriptik/build/Scriptik.app`.
 3. Name: `Scriptik Dev`, Identity Type: Self Signed Root, Certificate Type: Code Signing
 4. Click Create, then rebuild
 
+### Windows
+
+> **Requires .NET 8 SDK** - download from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/8.0).
+
+```powershell
+cd Scriptik.Windows
+dotnet build              # Debug build
+dotnet build -c Release   # Release build
+```
+
+To create a self-contained single-file executable:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Scripts/build.ps1
+```
+
+Output: `Scriptik.Windows/publish/Scriptik.exe`
+
 ## Troubleshooting
+
+### macOS
 
 | Problem                     | Solution                                                                           |
 | --------------------------- | ---------------------------------------------------------------------------------- |
@@ -202,6 +278,17 @@ The app bundle is output to `Scriptik/build/Scriptik.app`.
 | Permissions keep resetting  | Create a "Scriptik Dev" signing certificate (see Building from Source)              |
 | Empty/wrong transcription   | Try a larger model in Settings, add context words to initial prompt                 |
 | Global shortcut not working | Open Settings and re-set your preferred key combination                             |
+
+### Windows
+
+| Problem                            | Solution                                                                          |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| "Python not found" on launch       | Run `make setup-windows` or `powershell -File Scriptik.Windows/Scripts/setup.ps1` |
+| No microphone detected             | Open Settings > Status tab, click **Open Sound Settings**                         |
+| Transcription server not running   | Check Settings > Status tab; ensure Python/Whisper is installed                   |
+| Empty/wrong transcription          | Try a larger model in Settings, add context words to initial prompt                |
+| Global shortcut not working        | Open Settings > Shortcut tab and re-set your preferred key combination            |
+| Slow transcription                 | Install NVIDIA CUDA drivers; re-run setup.ps1 to get GPU-accelerated PyTorch      |
 
 ## Contributing
 
@@ -217,11 +304,20 @@ AI-assisted contributions are welcome, as long as they are well-tested and revie
 
 ## Uninstall
 
+### macOS
+
 ```bash
 ./uninstall.sh
 ```
 
 Removes the CLI script, Quick Action, config, and Whisper environment. To remove the native app, delete `Scriptik.app` from Applications.
+
+### Windows
+
+1. Delete the `Scriptik.Windows/publish/` folder (or wherever you placed the exe)
+2. Remove the Python environment: `rmdir /s %LOCALAPPDATA%\scriptik`
+3. Remove config and history: `rmdir /s %USERPROFILE%\.config\scriptik`
+4. If launch-at-login was enabled, it's automatically removed when the app is deleted
 
 ## Support
 

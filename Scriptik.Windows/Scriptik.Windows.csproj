@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>Resources\Icons\tray-idle.ico</ApplicationIcon>
+    <AssemblyName>Scriptik</AssemblyName>
+    <RootNamespace>Scriptik.Windows</RootNamespace>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Python\transcribe_server.py" CopyToOutputDirectory="PreserveNewest" Link="Python\transcribe_server.py" />
+    <Content Include="Python\transcribe.py" CopyToOutputDirectory="PreserveNewest" Link="Python\transcribe.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\Sounds\begin.wav" />
+    <Resource Include="Resources\Sounds\end.wav" />
+    <Resource Include="Resources\Sounds\cancel.wav" />
+    <Resource Include="Resources\Theme.xaml" />
+    <Resource Include="Resources\Icons\tray-idle.ico" />
+    <Resource Include="Resources\Icons\tray-recording.ico" />
+    <Resource Include="Resources\Icons\tray-transcribing.ico" />
+  </ItemGroup>
+</Project>
