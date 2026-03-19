@@ -57,7 +57,8 @@ public class SoundService : IDisposable
             var streamInfo = Application.GetResourceStream(uri);
             if (streamInfo?.Stream is not null)
             {
-                var player = new SoundPlayer(streamInfo.Stream);
+                using var stream = streamInfo.Stream;
+                var player = new SoundPlayer(stream);
                 player.Load();
                 _players[ev] = player;
             }

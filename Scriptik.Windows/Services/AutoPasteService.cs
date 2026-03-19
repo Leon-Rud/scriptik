@@ -83,6 +83,7 @@ public static class AutoPasteService
     private struct INPUT_UNION
     {
         [FieldOffset(0)] public KEYBDINPUT ki;
+        [FieldOffset(0)] public MOUSEINPUT mi; // Ensures union is sized to the largest member
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -90,6 +91,17 @@ public static class AutoPasteService
     {
         public ushort wVk;
         public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
         public uint dwFlags;
         public uint time;
         public IntPtr dwExtraInfo;

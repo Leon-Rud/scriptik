@@ -12,6 +12,7 @@ public class AudioRecorderService : INotifyPropertyChanged
     private WaveFileWriter? _writer;
     private DispatcherTimer? _levelTimer;
     private DateTime _startTime;
+    private readonly ManualResetEventSlim _recordingStoppedEvent = new(false);
 
     private bool _isRecording;
     private float _currentLevel;
@@ -69,6 +70,7 @@ public class AudioRecorderService : INotifyPropertyChanged
         };
 
         _writer = new WaveFileWriter(recordingPath, waveFormat);
+        _recordingStoppedEvent.Reset();
 
         _waveIn.DataAvailable += OnDataAvailable;
         _waveIn.RecordingStopped += OnRecordingStopped;
@@ -91,11 +93,12 @@ public class AudioRecorderService : INotifyPropertyChanged
         _levelTimer?.Stop();
         _levelTimer = null;
 
-        // Stop recording first — this triggers RecordingStopped which guarantees
-        // no more DataAvailable callbacks, then we safely dispose the writer.
+        // Signal stop and wait for RecordingStopped to fire, which guarantees
+        // all queued DataAvailable callbacks have completed before we dispose.
         _waveIn?.StopRecording();
+        _recordingStoppedEvent.Wait(TimeSpan.FromSeconds(2));
 
-        // Now safe to dispose writer (no more DataAvailable callbacks)
+        // Now safe to dispose writer — no more DataAvailable callbacks
         _writer?.Dispose();
         _writer = null;
 
@@ -151,7 +154,7 @@ public class AudioRecorderService : INotifyPropertyChanged
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs e)
     {
-        // Cleanup handled in StopRecording
+        _recordingStoppedEvent.Set();
     }
 
     private void UpdateLevels()
