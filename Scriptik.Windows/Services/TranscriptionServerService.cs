@@ -16,8 +16,15 @@ public class TranscriptionServerService : INotifyPropertyChanged
     private StreamWriter? _stdinWriter;
     private string? _currentModelName;
     private string? _lastPythonPath; // Remember python path for auto-restart
+    private volatile bool _stopping; // Suppress auto-restart when Stop() is called
+
+    // Auto-restart crash tracking
+    private int _consecutiveCrashes;
+    private const int MaxConsecutiveCrashes = 5;
+    private static readonly int[] BackoffMs = [500, 1000, 2000, 4000, 8000];
 
     private readonly object _completionLock = new();
+    private readonly SemaphoreSlim _requestGate = new(1, 1); // Serialize send-and-wait
     private TaskCompletionSource<Dictionary<string, object?>>? _pendingCompletion;
     private TaskCompletionSource<bool>? _readyCompletion;
 
@@ -35,6 +42,7 @@ public class TranscriptionServerService : INotifyPropertyChanged
     {
         if (State != ServerState.Stopped) return;
         State = ServerState.Starting;
+        _stopping = false;
         _currentModelName = model;
         _lastPythonPath = pythonPath;
 
@@ -71,7 +79,7 @@ public class TranscriptionServerService : INotifyPropertyChanged
         psi.Environment["PYTHONUTF8"] = "1";
 
         var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        proc.Exited += (_, _) => OnProcessExited(proc.ExitCode);
+        proc.Exited += (_, _) => OnProcessExited(proc);
 
         try
         {
@@ -89,12 +97,14 @@ public class TranscriptionServerService : INotifyPropertyChanged
         catch (Exception ex)
         {
             Debug.WriteLine($"Scriptik: failed to launch server: {ex.Message}");
+            proc.Dispose();
             State = ServerState.Stopped;
         }
     }
 
     public void Stop()
     {
+        _stopping = true;
         var proc = _process;
         _process = null;
         _stdinWriter = null;
@@ -113,6 +123,8 @@ public class TranscriptionServerService : INotifyPropertyChanged
             try { proc.Kill(); } catch { }
             Debug.WriteLine("Scriptik: server process terminated");
         }
+
+        proc?.Dispose();
     }
 
     // MARK: - Transcription
@@ -205,24 +217,33 @@ public class TranscriptionServerService : INotifyPropertyChanged
         TimeSpan timeout,
         CancellationToken ct = default)
     {
-        if (_stdinWriter is null)
-            throw new InvalidOperationException("Server not ready.");
-
-        var tcs = new TaskCompletionSource<Dictionary<string, object?>>();
-        lock (_completionLock)
+        // Serialize requests so concurrent callers don't overwrite _pendingCompletion
+        await _requestGate.WaitAsync(ct);
+        try
         {
-            _pendingCompletion = tcs;
+            if (_stdinWriter is null)
+                throw new InvalidOperationException("Server not ready.");
+
+            var tcs = new TaskCompletionSource<Dictionary<string, object?>>();
+            lock (_completionLock)
+            {
+                _pendingCompletion = tcs;
+            }
+
+            var json = JsonSerializer.Serialize(request);
+            await _stdinWriter.WriteLineAsync(json);
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeout);
+            await using var reg = cts.Token.Register(() => tcs.TrySetException(
+                new TimeoutException("Transcription server timed out.")));
+
+            return await tcs.Task;
         }
-
-        var json = JsonSerializer.Serialize(request);
-        await _stdinWriter.WriteLineAsync(json);
-
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(timeout);
-        await using var reg = cts.Token.Register(() => tcs.TrySetException(
-            new TimeoutException("Transcription server timed out.")));
-
-        return await tcs.Task;
+        finally
+        {
+            _requestGate.Release();
+        }
     }
 
     private async Task WaitForReadyAsync(TimeSpan timeout)
@@ -231,10 +252,19 @@ public class TranscriptionServerService : INotifyPropertyChanged
         if (State != ServerState.Starting)
             throw new InvalidOperationException("Server is not starting.");
 
-        var tcs = new TaskCompletionSource<bool>();
+        TaskCompletionSource<bool> tcs;
         lock (_completionLock)
         {
-            _readyCompletion = tcs;
+            // Reuse existing TCS if another caller is already waiting
+            if (_readyCompletion is not null)
+            {
+                tcs = _readyCompletion;
+            }
+            else
+            {
+                tcs = new TaskCompletionSource<bool>();
+                _readyCompletion = tcs;
+            }
         }
 
         using var cts = new CancellationTokenSource(timeout);
@@ -296,6 +326,8 @@ public class TranscriptionServerService : INotifyPropertyChanged
                     System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
                     {
                         State = ServerState.Ready;
+                        // Reset crash counter on successful ready
+                        _consecutiveCrashes = 0;
                         lock (_completionLock)
                         {
                             _readyCompletion?.TrySetResult(true);
@@ -330,13 +362,15 @@ public class TranscriptionServerService : INotifyPropertyChanged
         }
     }
 
-    private void OnProcessExited(int exitCode)
+    private void OnProcessExited(Process proc)
     {
+        var exitCode = -1;
+        try { exitCode = proc.ExitCode; } catch { }
         Debug.WriteLine($"Scriptik: server process terminated with code {exitCode}");
 
         var wasRunning = State != ServerState.Stopped;
         var modelName = _currentModelName ?? "medium";
-        var pythonPath = _lastPythonPath; // Use the configured path, not hardcoded
+        var pythonPath = _lastPythonPath;
 
         lock (_completionLock)
         {
@@ -346,17 +380,35 @@ public class TranscriptionServerService : INotifyPropertyChanged
             _pendingCompletion = null;
         }
 
-        State = ServerState.Stopped;
+        // Marshal State change to UI thread to avoid cross-thread PropertyChanged
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            State = ServerState.Stopped;
+        });
         _process = null;
         _stdinWriter = null;
 
-        // Auto-restart if it was running
-        if (wasRunning && pythonPath is not null)
+        // Dispose the exited process to release handles
+        proc.Dispose();
+
+        // Auto-restart if it was running and Stop() was not called
+        if (wasRunning && !_stopping && pythonPath is not null)
         {
-            Debug.WriteLine("Scriptik: auto-restarting server in 500ms");
+            _consecutiveCrashes++;
+
+            if (_consecutiveCrashes > MaxConsecutiveCrashes)
+            {
+                Debug.WriteLine($"Scriptik: server crashed {_consecutiveCrashes} times consecutively, giving up auto-restart");
+                return;
+            }
+
+            var delay = BackoffMs[Math.Min(_consecutiveCrashes - 1, BackoffMs.Length - 1)];
+            Debug.WriteLine($"Scriptik: auto-restarting server in {delay}ms (crash #{_consecutiveCrashes})");
+
             _ = Task.Run(async () =>
             {
-                await Task.Delay(500);
+                await Task.Delay(delay);
+                if (_stopping) return; // Stop() was called while we were waiting
                 if (File.Exists(pythonPath))
                 {
                     System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
