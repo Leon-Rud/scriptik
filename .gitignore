@@ -8,3 +8,11 @@ __pycache__/
 .cache/
 Scriptik/.build/
 Scriptik/build/
+
+# Windows build artifacts
+Scriptik.Windows/bin/
+Scriptik.Windows/obj/
+Scriptik.Windows/publish/
+
+# IDE
+.idea/
