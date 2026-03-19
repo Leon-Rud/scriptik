@@ -175,12 +175,13 @@ public class ConfigManager : INotifyPropertyChanged
             var key = trimmed[..eqIndex].Trim();
             var value = trimmed[(eqIndex + 1)..].Trim();
 
-            // Strip surrounding quotes
+            // Strip surrounding quotes and unescape
             if (value.Length >= 2 &&
                 ((value.StartsWith('"') && value.EndsWith('"')) ||
                  (value.StartsWith('\'') && value.EndsWith('\''))))
             {
                 value = value[1..^1];
+                value = value.Replace("\\\"", "\"").Replace("\\\\", "\\");
             }
 
             switch (key)
@@ -225,13 +226,13 @@ public class ConfigManager : INotifyPropertyChanged
             "# Scriptik configuration",
             "# This file is auto-generated. Manual edits are preserved.",
             "",
-            $"WHISPER_MODEL=\"{WhisperModel}\"",
+            $"WHISPER_MODEL=\"{Escape(WhisperModel)}\"",
             $"PAUSE_THRESHOLD=\"{PauseThreshold.ToString(CultureInfo.InvariantCulture)}\"",
-            $"INITIAL_PROMPT=\"{InitialPrompt}\"",
+            $"INITIAL_PROMPT=\"{Escape(InitialPrompt)}\"",
             $"AUTO_PASTE=\"{AutoPaste}\"",
             $"INCLUDE_TIMESTAMPS=\"{IncludeTimestamps}\"",
-            $"LANGUAGE=\"{Language}\"",
-            $"WHISPER_VENV=\"{WhisperVenv}\"",
+            $"LANGUAGE=\"{Escape(Language)}\"",
+            $"WHISPER_VENV=\"{Escape(WhisperVenv)}\"",
             $"SHOW_FLOATING_CIRCLE=\"{ShowFloatingCircle}\"",
             $"ENABLE_SOUND_FEEDBACK=\"{EnableSoundFeedback}\"",
             $"CIRCLE_POSITION_X=\"{CirclePositionX.ToString(CultureInfo.InvariantCulture)}\"",
@@ -243,6 +244,9 @@ public class ConfigManager : INotifyPropertyChanged
 
         File.WriteAllText(ConfigFilePath, string.Join("\n", lines));
     }
+
+    private static string Escape(string value) =>
+        value.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
     // MARK: - INotifyPropertyChanged
 

@@ -114,7 +114,11 @@ public class TrayIconManager : IDisposable
             var stream = Application.GetResourceStream(new Uri(iconUri))?.Stream;
             if (stream is not null)
             {
-                _trayIcon.Icon = new Icon(stream);
+                var newIcon = new Icon(stream);
+                var oldIcon = _trayIcon.Icon;
+                _trayIcon.Icon = newIcon;
+                if (oldIcon is not null && oldIcon != SystemIcons.Application)
+                    oldIcon.Dispose();
                 return;
             }
         }

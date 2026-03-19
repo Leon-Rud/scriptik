@@ -165,6 +165,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _appState?.CancelTranscription();
         _appState?.TranscriptionServer.Stop();
         _hotkeyService?.Dispose();
         _trayIconManager?.Dispose();

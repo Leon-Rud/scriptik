@@ -29,6 +29,7 @@ public class AppState : INotifyPropertyChanged
     private TimeSpan _estimatedTranscriptionDuration;
     private DateTime _transcriptionStartTime;
     private DispatcherTimer? _progressTimer;
+    private CancellationTokenSource? _transcriptionCts;
 
     public string StatusText
     {
@@ -179,14 +180,17 @@ public class AppState : INotifyPropertyChanged
         StatusText = "Transcribing...";
         StartProgressTimer();
 
-        _ = RunTranscriptionAsync();
+        _transcriptionCts?.Cancel();
+        _transcriptionCts = new CancellationTokenSource();
+        _ = RunTranscriptionAsync(_transcriptionCts.Token);
     }
 
-    private async Task RunTranscriptionAsync()
+    private async Task RunTranscriptionAsync(CancellationToken ct)
     {
         try
         {
-            var result = await Transcriber.TranscribeAsync(Config, TranscriptionServer);
+            var result = await Transcriber.TranscribeAsync(Config, TranscriptionServer, ct);
+            ct.ThrowIfCancellationRequested();
             StopProgressTimer();
 
             var clipboardText = Config.IncludeTimestamps ? result : StripTimestamps(result);
@@ -194,7 +198,7 @@ public class AppState : INotifyPropertyChanged
 
             if (Config.AutoPaste)
             {
-                await Task.Delay(300);
+                await Task.Delay(300, ct);
                 await PasteIntoPreviousAppAsync();
             }
 
@@ -209,9 +213,14 @@ public class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(DisplayResult));
 
             var currentStatus = StatusText;
-            await Task.Delay(3000);
+            await Task.Delay(3000, ct);
             if (StatusText == currentStatus)
                 StatusText = "Ready";
+        }
+        catch (OperationCanceledException)
+        {
+            StopProgressTimer();
+            Debug.WriteLine("Scriptik: transcription cancelled");
         }
         catch (Exception ex)
         {
@@ -219,6 +228,12 @@ public class AppState : INotifyPropertyChanged
             Debug.WriteLine($"Scriptik: transcription error: {ex}");
             StatusText = $"Error: {ex.Message}";
         }
+    }
+
+    public void CancelTranscription()
+    {
+        _transcriptionCts?.Cancel();
+        _transcriptionCts = null;
     }
 
     public void ModelDidChange()
