@@ -80,6 +80,10 @@ public class TranscriberService : INotifyPropertyChanged
                     config.PauseThreshold, config.WhisperModel,
                     config.InitialPrompt, config.Language, ct);
             }
+            catch (OperationCanceledException)
+            {
+                throw; // Don't fall back to one-shot on cancellation
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Scriptik: server transcription failed, falling back to one-shot: {ex.Message}");

@@ -23,11 +23,12 @@ public class TrayIconManager : IDisposable
 
         UpdateIcon(TrayIconState.Idle);
 
-        // Update icon on state changes
+        // Update icon on state changes (dispatch to UI thread in case
+        // PropertyChanged fires from a background thread)
         appState.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(AppState.TrayIcon))
-                UpdateIcon(appState.TrayIcon);
+                Application.Current?.Dispatcher.InvokeAsync(() => UpdateIcon(appState.TrayIcon));
         };
 
         // Double-click opens settings

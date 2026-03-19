@@ -139,7 +139,7 @@ public class TranscriptionServerService : INotifyPropertyChanged
             throw new InvalidOperationException("Transcription server is not ready.");
 
         if (State == ServerState.Starting)
-            await WaitForReadyAsync(TimeSpan.FromSeconds(30));
+            await WaitForReadyAsync(TimeSpan.FromSeconds(30), ct);
 
         State = ServerState.Busy;
 
@@ -246,7 +246,7 @@ public class TranscriptionServerService : INotifyPropertyChanged
         }
     }
 
-    private async Task WaitForReadyAsync(TimeSpan timeout)
+    private async Task WaitForReadyAsync(TimeSpan timeout, CancellationToken ct = default)
     {
         if (State == ServerState.Ready) return;
         if (State != ServerState.Starting)
@@ -267,9 +267,9 @@ public class TranscriptionServerService : INotifyPropertyChanged
             }
         }
 
-        using var cts = new CancellationTokenSource(timeout);
-        await using var reg = cts.Token.Register(() => tcs.TrySetException(
-            new TimeoutException("Server failed to become ready.")));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout);
+        await using var reg = cts.Token.Register(() => tcs.TrySetCanceled());
 
         await tcs.Task;
         Debug.WriteLine($"Scriptik: server ready (model: {_currentModelName})");
