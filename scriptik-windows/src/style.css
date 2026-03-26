@@ -1,0 +1,4 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 16px; }
+#status { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+#transcription { font-size: 13px; max-height: 180px; overflow-y: auto; white-space: pre-wrap; opacity: 0.8; }
