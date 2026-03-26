@@ -1,0 +1,40 @@
+name: Windows Build
+
+on:
+  push:
+    paths:
+      - 'scriptik-windows/**'
+  pull_request:
+    paths:
+      - 'scriptik-windows/**'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: scriptik-windows/src-tauri
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2"
+
+      - name: Build Tauri app
+        working-directory: scriptik-windows
+        run: cargo tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: scriptik-windows-msi
+          path: scriptik-windows/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: warn
