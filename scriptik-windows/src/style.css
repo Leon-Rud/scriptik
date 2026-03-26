@@ -1,4 +1,58 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 16px; }
-#status { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
-#transcription { font-size: 13px; max-height: 180px; overflow-y: auto; white-space: pre-wrap; opacity: 0.8; }
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  padding: 16px;
+  min-height: 250px;
+}
+h1 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #89b4fa;
+}
+#status {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-align: center;
+}
+#status.idle { background: #313244; color: #a6adc8; }
+#status.recording { background: #45243e; color: #f38ba8; }
+#status.transcribing { background: #3e3529; color: #f9e2af; }
+#transcription-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6c7086;
+  margin-bottom: 4px;
+}
+#transcription {
+  font-size: 13px;
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  opacity: 0.85;
+  line-height: 1.5;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+}
+.copied-toast {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #a6e3a1;
+  color: #1e1e2e;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  animation: fadeout 2s forwards;
+}
+@keyframes fadeout {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}

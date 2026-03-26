@@ -183,7 +183,7 @@ impl TranscriptionServer {
         let tx = self.request_tx.lock().await;
         let tx = tx.as_ref().ok_or("Server not started")?;
         tx.send(request).await.map_err(|_| "Failed to send request".to_string())?;
-        drop(tx);
+        let _ = tx;
 
         let response = tokio::time::timeout(
             std::time::Duration::from_secs(120),

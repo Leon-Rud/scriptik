@@ -13,7 +13,7 @@ hound = "3.5"
 arboard = "3"
 global-hotkey = "0.6"
 dirs = "6"
-tokio = { version = "1", features = ["process", "io-util", "sync", "time", "rt"] }
+tokio = { version = "1", features = ["process", "io-util", "sync", "time", "rt", "macros"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
