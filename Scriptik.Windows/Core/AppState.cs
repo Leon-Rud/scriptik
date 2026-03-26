@@ -181,6 +181,7 @@ public class AppState : INotifyPropertyChanged
         StartProgressTimer();
 
         _transcriptionCts?.Cancel();
+        _transcriptionCts?.Dispose();
         _transcriptionCts = new CancellationTokenSource();
         _ = RunTranscriptionAsync(_transcriptionCts.Token);
     }
@@ -233,6 +234,7 @@ public class AppState : INotifyPropertyChanged
     public void CancelTranscription()
     {
         _transcriptionCts?.Cancel();
+        _transcriptionCts?.Dispose();
         _transcriptionCts = null;
     }
 

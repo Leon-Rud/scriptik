@@ -35,8 +35,8 @@ public partial class App : Application
             ShowInTaskbar = false,
             ShowActivated = false,
         };
-        _messageWindow.Show();
-        _messageWindow.Hide();
+        var helper = new System.Windows.Interop.WindowInteropHelper(_messageWindow);
+        helper.EnsureHandle();
 
         // Register global hotkey
         _hotkeyService = new GlobalHotkeyService();
@@ -127,7 +127,7 @@ public partial class App : Application
         return null;
     }
 
-    private void RunSetupScript(string scriptPath)
+    private async void RunSetupScript(string scriptPath)
     {
         try
         {
@@ -138,9 +138,11 @@ public partial class App : Application
                 UseShellExecute = true, // Opens in a visible terminal window
             };
             var proc = Process.Start(psi);
-            proc?.WaitForExit();
+            if (proc is null) return;
 
-            if (proc?.ExitCode == 0)
+            await Task.Run(() => proc.WaitForExit());
+
+            if (proc.ExitCode == 0)
             {
                 MessageBox.Show("Setup complete! Restarting transcription server...",
                     "Scriptik Setup", MessageBoxButton.OK, MessageBoxImage.Information);
