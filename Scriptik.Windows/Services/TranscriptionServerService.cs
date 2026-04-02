@@ -77,6 +77,7 @@ public class TranscriptionServerService : INotifyPropertyChanged
         psi.Environment["PYTHONUNBUFFERED"] = "1";
         psi.Environment["PYTHONIOENCODING"] = "utf-8";
         psi.Environment["PYTHONUTF8"] = "1";
+        FfmpegHelper.InjectPath(psi);
 
         var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
         proc.Exited += (_, _) => OnProcessExited(proc);

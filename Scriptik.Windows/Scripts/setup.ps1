@@ -11,26 +11,38 @@ Write-Host "[1/4] Creating Python virtual environment at $VenvDir..."
 if (Test-Path $VenvDir) {
     Write-Host "  Virtual environment already exists. Updating..."
 } else {
-    # Try 'python', then 'python3', then 'py' to find a working interpreter
+    # Find a Python 3.10-3.12 interpreter (best CUDA/PyTorch compatibility).
+    # Falls back to any Python 3 if none in that range is found.
     $pythonCmd = $null
-    foreach ($cmd in @("python", "python3", "py")) {
+    $fallbackCmd = $null
+    foreach ($cmd in @("python", "python3", "py -3.12", "py -3.11", "py -3.10", "py")) {
         try {
-            $ver = & $cmd --version 2>&1
-            if ($ver -match "Python 3\.") {
-                $pythonCmd = $cmd
+            $ver = & $cmd.Split()[0] $cmd.Split()[1..9] --version 2>&1
+            if ($ver -match "Python (3\.(\d+))") {
+                $minor = [int]$Matches[2]
                 Write-Host "  Found $ver via '$cmd'"
-                break
+                if ($minor -ge 10 -and $minor -le 12) {
+                    $pythonCmd = $cmd
+                    break
+                } elseif (-not $fallbackCmd) {
+                    $fallbackCmd = $cmd
+                }
             }
         } catch { }
     }
 
+    if (-not $pythonCmd -and $fallbackCmd) {
+        Write-Host "  WARNING: No Python 3.10-3.12 found. Using $fallbackCmd (CUDA PyTorch may not be available)." -ForegroundColor Yellow
+        $pythonCmd = $fallbackCmd
+    }
+
     if (-not $pythonCmd) {
         Write-Host "ERROR: Python 3 not found. Is Python installed?" -ForegroundColor Red
-        Write-Host "  Install Python from https://python.org or via: winget install Python.Python.3.11"
+        Write-Host "  Install Python 3.11 from https://python.org or via: winget install Python.Python.3.11"
         exit 1
     }
 
-    & $pythonCmd -m venv $VenvDir
+    & $pythonCmd.Split()[0] $pythonCmd.Split()[1..9] -m venv $VenvDir
     if ($LASTEXITCODE -ne 0) {
         Write-Host "ERROR: Failed to create virtual environment." -ForegroundColor Red
         exit 1

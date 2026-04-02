@@ -18,6 +18,7 @@ dotnet publish $ProjectDir `
     --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:IncludeAllContentForSelfExtract=true `
     -o $OutputDir
 
 if ($LASTEXITCODE -ne 0) {

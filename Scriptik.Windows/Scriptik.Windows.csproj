@@ -5,10 +5,14 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationIcon>Resources\Icons\tray-idle.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\Icons\app-icon.ico</ApplicationIcon>
     <AssemblyName>Scriptik</AssemblyName>
     <RootNamespace>Scriptik.Windows</RootNamespace>
     <Version>1.0.0</Version>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />

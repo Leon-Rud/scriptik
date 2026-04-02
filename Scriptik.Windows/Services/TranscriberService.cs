@@ -129,6 +129,7 @@ public class TranscriberService : INotifyPropertyChanged
         psi.Environment["PYTHONUNBUFFERED"] = "1";
         psi.Environment["PYTHONIOENCODING"] = "utf-8";
         psi.Environment["PYTHONUTF8"] = "1";
+        FfmpegHelper.InjectPath(psi);
 
         using var process = new Process { StartInfo = psi };
         process.Start();

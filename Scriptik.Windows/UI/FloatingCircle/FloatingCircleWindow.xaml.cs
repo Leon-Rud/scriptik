@@ -14,10 +14,14 @@ public partial class FloatingCircleWindow : Window
 {
     private readonly AppState _appState;
     private DispatcherTimer? _positionSaveTimer;
-    private DispatcherTimer? _waveformTimer;
+    private DispatcherTimer? _animationTimer;
     private Storyboard? _pulseStoryboard;
     private bool _isDragging;
     private Point _dragStart;
+    private DateTime _animationStart;
+
+    // Smooth bar heights for easing
+    private readonly float[] _smoothBarHeights = new float[5];
 
     // Win32 constants for non-activating window
     private const int WM_MOUSEACTIVATE = 0x0021;
@@ -45,10 +49,9 @@ public partial class FloatingCircleWindow : Window
         }
         else
         {
-            // Bottom-right of primary screen
             var workArea = SystemParameters.WorkArea;
-            Left = workArea.Right - 56 - 16;
-            Top = workArea.Bottom - 56 - 16;
+            Left = workArea.Right - 80 - 16;
+            Top = workArea.Bottom - 80 - 16;
         }
 
         // Subscribe to state changes
@@ -77,8 +80,6 @@ public partial class FloatingCircleWindow : Window
         base.OnSourceInitialized(e);
 
         var hwnd = new WindowInteropHelper(this).Handle;
-
-        // Make non-activating: never steal focus
         var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
         SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
 
@@ -106,41 +107,53 @@ public partial class FloatingCircleWindow : Window
 
         if (showCopied)
         {
-            SetState(new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E)),  // #22C55E
+            StopAnimationTimer();
+            SetState(Color.FromRgb(0x22, 0xC5, 0x5E), shadowColor: Colors.Green, shadowRadius: 5,
                 showMic: false, showWaveform: false, showTranscribing: false,
-                showCheck: true, showPulse: false, showCancel: false);
+                showCheck: true, showPulse: false, showCancel: false, showElapsed: false);
         }
         else if (_appState.Transcriber.IsTranscribing)
         {
-            SetState(new SolidColorBrush(Color.FromRgb(0x00, 0xC8, 0x96)),  // #00C896
+            SetState(Color.FromRgb(0x63, 0x66, 0xF1), shadowColor: Color.FromRgb(0x63, 0x66, 0xF1), shadowRadius: 5,
                 showMic: false, showWaveform: false, showTranscribing: true,
-                showCheck: false, showPulse: false, showCancel: false);
+                showCheck: false, showPulse: false, showCancel: false, showElapsed: false);
+            StartAnimationTimer();
         }
         else if (_appState.Recorder.IsRecording)
         {
-            SetState(new SolidColorBrush(Color.FromRgb(0xE5, 0x32, 0x2D)),  // #E5322D
+            SetState(Color.FromRgb(0xE5, 0x32, 0x2D), shadowColor: Color.FromRgb(0xE5, 0x32, 0x2D), shadowRadius: 6,
                 showMic: false, showWaveform: true, showTranscribing: false,
-                showCheck: false, showPulse: true, showCancel: true);
-            StartWaveformTimer();
+                showCheck: false, showPulse: true, showCancel: true, showElapsed: true);
+            _animationStart = DateTime.Now;
+            StartAnimationTimer();
         }
         else
         {
-            SetState(new SolidColorBrush(Color.FromRgb(0x1B, 0x1F, 0x23)),  // #1B1F23
+            StopAnimationTimer();
+            SetState(Color.FromRgb(0x1B, 0x1F, 0x23), shadowColor: Colors.Black, shadowRadius: 4,
                 showMic: true, showWaveform: false, showTranscribing: false,
-                showCheck: false, showPulse: false, showCancel: false);
-            StopWaveformTimer();
+                showCheck: false, showPulse: false, showCancel: false, showElapsed: false);
         }
     }
 
-    private void SetState(SolidColorBrush bg, bool showMic, bool showWaveform,
-        bool showTranscribing, bool showCheck, bool showPulse, bool showCancel)
+    private void SetState(Color bg, Color shadowColor, double shadowRadius,
+        bool showMic, bool showWaveform, bool showTranscribing,
+        bool showCheck, bool showPulse, bool showCancel, bool showElapsed)
     {
-        MainCircle.Background = bg;
+        // Semi-transparent background like Mac's ultraThinMaterial
+        MainCircle.Background = new SolidColorBrush(Color.FromArgb(0xDD, bg.R, bg.G, bg.B));
+
+        // State-aware shadow like Mac
+        CircleShadow.Color = shadowColor;
+        CircleShadow.BlurRadius = shadowRadius;
+        CircleShadow.Opacity = 0.5;
+
         MicIcon.Visibility = showMic ? Visibility.Visible : Visibility.Collapsed;
         WaveformPanel.Visibility = showWaveform ? Visibility.Visible : Visibility.Collapsed;
-        TranscribingIcon.Visibility = showTranscribing ? Visibility.Visible : Visibility.Collapsed;
+        TranscribingPanel.Visibility = showTranscribing ? Visibility.Visible : Visibility.Collapsed;
         CheckIcon.Visibility = showCheck ? Visibility.Visible : Visibility.Collapsed;
         CancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
+        ElapsedText.Visibility = showElapsed ? Visibility.Visible : Visibility.Collapsed;
 
         if (showPulse) StartPulseAnimation();
         else StopPulseAnimation();
@@ -149,46 +162,50 @@ public partial class FloatingCircleWindow : Window
         PulseRing2.Visibility = showPulse ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // MARK: - Animations
+    // MARK: - Pulse Animation (matches Mac easeOut timing)
 
     private void StartPulseAnimation()
     {
         StopPulseAnimation();
 
         _pulseStoryboard = new Storyboard();
-
-        AddPulseAnimation(_pulseStoryboard, PulseScale1, PulseRing1, TimeSpan.Zero);
-        AddPulseAnimation(_pulseStoryboard, PulseScale2, PulseRing2, TimeSpan.FromMilliseconds(600));
-
+        AddPulseAnimation(_pulseStoryboard, PulseRing1, TimeSpan.Zero);
+        AddPulseAnimation(_pulseStoryboard, PulseRing2, TimeSpan.FromMilliseconds(600));
         _pulseStoryboard.Begin(this, true);
     }
 
-    private static void AddPulseAnimation(Storyboard sb, ScaleTransform scale, Ellipse ring, TimeSpan beginTime)
+    private static void AddPulseAnimation(Storyboard sb, Ellipse ring, TimeSpan beginTime)
     {
-        var scaleXAnim = new DoubleAnimation(1.0, 1.5, TimeSpan.FromMilliseconds(1200))
+        var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+        var duration = TimeSpan.FromMilliseconds(1200);
+
+        var scaleXAnim = new DoubleAnimation(1.0, 1.5, duration)
         {
             RepeatBehavior = RepeatBehavior.Forever,
             BeginTime = beginTime,
+            EasingFunction = ease,
         };
         Storyboard.SetTarget(scaleXAnim, ring);
-        Storyboard.SetTargetProperty(scaleXAnim,
-            new PropertyPath("RenderTransform.ScaleX"));
+        Storyboard.SetTargetProperty(scaleXAnim, new PropertyPath("RenderTransform.ScaleX"));
         sb.Children.Add(scaleXAnim);
 
-        var scaleYAnim = new DoubleAnimation(1.0, 1.5, TimeSpan.FromMilliseconds(1200))
+        var scaleYAnim = new DoubleAnimation(1.0, 1.5, duration)
         {
             RepeatBehavior = RepeatBehavior.Forever,
             BeginTime = beginTime,
+            EasingFunction = ease,
         };
         Storyboard.SetTarget(scaleYAnim, ring);
-        Storyboard.SetTargetProperty(scaleYAnim,
-            new PropertyPath("RenderTransform.ScaleY"));
+        Storyboard.SetTargetProperty(scaleYAnim, new PropertyPath("RenderTransform.ScaleY"));
         sb.Children.Add(scaleYAnim);
 
-        var opacityAnim = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(1200))
+        // Mac opacity: 2.0 - scale → starts at 1.0, ends at 0.5
+        // Approximate with easeIn so it stays visible longer
+        var opacityAnim = new DoubleAnimation(1.0, 0.0, duration)
         {
             RepeatBehavior = RepeatBehavior.Forever,
             BeginTime = beginTime,
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn },
         };
         Storyboard.SetTarget(opacityAnim, ring);
         Storyboard.SetTargetProperty(opacityAnim, new PropertyPath("Opacity"));
@@ -201,21 +218,38 @@ public partial class FloatingCircleWindow : Window
         _pulseStoryboard = null;
     }
 
-    private void StartWaveformTimer()
+    // MARK: - Unified Animation Timer (~60fps for waveform + transcribing)
+
+    private void StartAnimationTimer()
     {
-        StopWaveformTimer();
-        _waveformTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-        _waveformTimer.Tick += (_, _) => UpdateWaveformBars();
-        _waveformTimer.Start();
+        StopAnimationTimer();
+        _animationStart = DateTime.Now;
+        // ~60fps for smooth animation like Mac's TimelineView
+        _animationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _animationTimer.Tick += OnAnimationTick;
+        _animationTimer.Start();
     }
 
-    private void StopWaveformTimer()
+    private void StopAnimationTimer()
     {
-        _waveformTimer?.Stop();
-        _waveformTimer = null;
+        _animationTimer?.Stop();
+        _animationTimer = null;
     }
 
-    private void UpdateWaveformBars()
+    private void OnAnimationTick(object? sender, EventArgs e)
+    {
+        if (_appState.Recorder.IsRecording)
+        {
+            UpdateRecordingWaveform();
+            UpdateElapsedTime();
+        }
+        else if (_appState.Transcriber.IsTranscribing)
+        {
+            UpdateTranscribingWaveform();
+        }
+    }
+
+    private void UpdateRecordingWaveform()
     {
         var levels = _appState.Recorder.Levels;
         if (levels.Length < 5) return;
@@ -224,9 +258,63 @@ public partial class FloatingCircleWindow : Window
         for (int i = 0; i < 5; i++)
         {
             var level = levels[levels.Length - 5 + i];
-            var height = Math.Max(2, 2 + level * 14); // 2-16px range
-            bars[i].Height = height;
+            // Mac: minHeight 2, maxHeight 8, mirrored (*2) = 4-16 range
+            var targetHeight = Math.Max(4, 4 + level * 12);
+
+            // Smooth easing like Mac's 0.08s easeOut
+            _smoothBarHeights[i] += (float)(targetHeight - _smoothBarHeights[i]) * 0.25f;
+            bars[i].Height = _smoothBarHeights[i];
+
+            // Opacity varies with level like Mac: 0.4 + 0.6 * normalizedHeight
+            var normalizedHeight = (_smoothBarHeights[i] - 4) / 12;
+            bars[i].Opacity = 0.4 + 0.6 * normalizedHeight;
         }
+    }
+
+    private void UpdateTranscribingWaveform()
+    {
+        // Mac's procedural sine wave: 0.4 + 0.6 * abs(sin(t * 4 + i * 0.7))
+        var t = (DateTime.Now - _animationStart).TotalSeconds;
+        var bars = new Rectangle[] { TBar0, TBar1, TBar2, TBar3, TBar4 };
+
+        for (int i = 0; i < 5; i++)
+        {
+            var wave = 0.4 + 0.6 * Math.Abs(Math.Sin(t * 4 + i * 0.7));
+            var height = 4 + wave * 12; // 4-16 range
+            bars[i].Height = height;
+            bars[i].Opacity = 0.4 + 0.6 * wave;
+        }
+    }
+
+    private void UpdateElapsedTime()
+    {
+        var elapsed = _appState.Recorder.ElapsedTime;
+        ElapsedText.Text = $"{(int)elapsed.TotalMinutes}:{elapsed.Seconds:D2}";
+    }
+
+    // MARK: - Hover effect (like Mac's 1.12x scale)
+
+    protected override void OnMouseEnter(MouseEventArgs e)
+    {
+        base.OnMouseEnter(e);
+        AnimateScale(1.12, TimeSpan.FromMilliseconds(200));
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        AnimateScale(1.0, TimeSpan.FromMilliseconds(200));
+    }
+
+    private void AnimateScale(double target, TimeSpan duration)
+    {
+        var ease = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
+
+        var animX = new DoubleAnimation(target, duration) { EasingFunction = ease };
+        var animY = new DoubleAnimation(target, duration) { EasingFunction = ease };
+
+        CircleScale.BeginAnimation(ScaleTransform.ScaleXProperty, animX);
+        CircleScale.BeginAnimation(ScaleTransform.ScaleYProperty, animY);
     }
 
     // MARK: - Drag
@@ -263,7 +351,6 @@ public partial class FloatingCircleWindow : Window
             var pos = e.GetPosition(this);
             var delta = pos - _dragStart;
 
-            // If barely moved, treat as click (toggle recording)
             if (Math.Abs(delta.X) <= 3 && Math.Abs(delta.Y) <= 3)
                 _appState.Toggle();
 

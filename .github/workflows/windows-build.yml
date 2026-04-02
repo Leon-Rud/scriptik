@@ -30,7 +30,7 @@ jobs:
 
       - name: Publish self-contained exe
         working-directory: Scriptik.Windows
-        run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
+        run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o publish
 
       - name: Upload exe
         uses: actions/upload-artifact@v4
