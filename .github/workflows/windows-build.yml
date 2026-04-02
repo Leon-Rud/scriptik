@@ -1,0 +1,40 @@
+name: Windows Build
+
+on:
+  push:
+    paths:
+      - 'Scriptik.Windows/**'
+  pull_request:
+    paths:
+      - 'Scriptik.Windows/**'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        working-directory: Scriptik.Windows
+        run: dotnet restore
+
+      - name: Build
+        working-directory: Scriptik.Windows
+        run: dotnet build -c Release --no-restore
+
+      - name: Publish self-contained exe
+        working-directory: Scriptik.Windows
+        run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o publish
+
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: scriptik-windows-exe
+          path: Scriptik.Windows/publish/Scriptik.exe
+          if-no-files-found: warn

@@ -1,0 +1,104 @@
+<Window x:Class="Scriptik.Windows.UI.FloatingCircle.FloatingCircleWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:Scriptik.Windows.Converters"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStyle="None"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Width="80" Height="80"
+        Title="ScriptikFloatingCircle">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <Grid x:Name="RootGrid" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <!-- Pulse ring 1 (recording only) -->
+        <Ellipse x:Name="PulseRing1" Width="36" Height="36"
+                 Stroke="#80E5322D" StrokeThickness="1.5"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Visibility="Collapsed" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <ScaleTransform x:Name="PulseScale1" ScaleX="1" ScaleY="1"/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <!-- Pulse ring 2 (recording only) -->
+        <Ellipse x:Name="PulseRing2" Width="36" Height="36"
+                 Stroke="#4DE5322D" StrokeThickness="1.0"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Visibility="Collapsed" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <ScaleTransform x:Name="PulseScale2" ScaleX="1" ScaleY="1"/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <!-- Main circle -->
+        <Border x:Name="MainCircle" Width="36" Height="36" CornerRadius="18"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="#CC1B1F23" RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="CircleScale" ScaleX="1" ScaleY="1"/>
+            </Border.RenderTransform>
+            <Border.Effect>
+                <DropShadowEffect x:Name="CircleShadow" BlurRadius="4" ShadowDepth="1"
+                                  Color="Black" Opacity="0.4"/>
+            </Border.Effect>
+
+            <Grid>
+                <!-- Mic icon (idle) -->
+                <TextBlock x:Name="MicIcon" Text="&#xE720;" FontFamily="Segoe MDL2 Assets"
+                           FontSize="14" Foreground="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- Waveform bars (recording) — mirrored like Mac -->
+                <StackPanel x:Name="WaveformPanel" Orientation="Horizontal"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Visibility="Collapsed">
+                    <Rectangle x:Name="Bar0" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                    <Rectangle x:Name="Bar1" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                    <Rectangle x:Name="Bar2" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                    <Rectangle x:Name="Bar3" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                    <Rectangle x:Name="Bar4" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                </StackPanel>
+
+                <!-- Elapsed time (recording) -->
+                <TextBlock x:Name="ElapsedText"
+                           FontSize="7" Foreground="White" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                           Margin="0,0,0,3" Visibility="Collapsed"/>
+
+                <!-- Transcribing wave bars (procedural sine animation like Mac) -->
+                <StackPanel x:Name="TranscribingPanel" Orientation="Horizontal"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Visibility="Collapsed">
+                    <Rectangle x:Name="TBar0" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                    <Rectangle x:Name="TBar1" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                    <Rectangle x:Name="TBar2" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                    <Rectangle x:Name="TBar3" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                    <Rectangle x:Name="TBar4" Width="2" Height="4" Fill="White" Margin="1,0" RadiusX="1" RadiusY="1"/>
+                </StackPanel>
+
+                <!-- Checkmark (copied) -->
+                <TextBlock x:Name="CheckIcon" Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                           FontSize="14" Foreground="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="Collapsed"/>
+            </Grid>
+        </Border>
+
+        <!-- Cancel button (recording only) -->
+        <Border x:Name="CancelButton" Width="14" Height="14" CornerRadius="7"
+                Background="#CC1B1F23" Cursor="Hand"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="24,-24,0,0" Visibility="Collapsed"
+                MouseLeftButtonDown="CancelButton_Click">
+            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                       FontSize="7" Foreground="White"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</Window>
